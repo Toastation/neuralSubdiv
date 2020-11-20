@@ -26,6 +26,7 @@ Vin = normalizeUnitBox(Vin);
 
 % create subdivision meshes
 for ii = 1:numData
+    % targeted number of vertex after edge collapses 
     nVc = nV_average + round(nV_variance * (rand() - 0.5));
 
     % perform qslim decimation with out self-parameterization (Section 4.1,4.2)
