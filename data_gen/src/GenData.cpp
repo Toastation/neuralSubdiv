@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "RandomDecimation.h"
 #include "TestViewer.h"
 
 #include <iostream>
@@ -29,13 +30,16 @@ int main(int argc, char** argv) {
 	std::cout << "res : " << res << std::endl;
 	std::cout << "vertex count: " << mesh.n_vertices() << std::endl;
 
-	int tvAverage = 300; // target average number of vertices
-	int tvVariance = 100;
-	int nbSubd = 2;
+	int tv_average = 300; // target average number of vertices
+	int tv_variance = 100;
+	int nb_subd = 2;
 	double r = std::rand() / (double)RAND_MAX;
-	int nTargetVertex = tvAverage + round(tvVariance * (r - 0.5));
+	int nTargetVertex = tv_average + round(tv_variance * (r - 0.5));
 
-	neuralSubdiv::normalizeUnitBox(mesh);
+	neuralSubdiv::normalize_unit_box(mesh);
+
+	//neuralSubdiv::RandomDecimation rd(mesh);
+	//rd.initialize();
 
 	window.load_mesh(argv[1]);
 

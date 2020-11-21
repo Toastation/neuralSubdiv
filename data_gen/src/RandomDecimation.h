@@ -26,7 +26,7 @@ public:
     //! Initialize with given parameters.
     void initialize(Scalar aspect_ratio = 0.0, Scalar edge_length = 0.0,
         unsigned int max_valence = 0, Scalar normal_deviation = 0.0,
-        Scalar hausdorff_error = 0.0);
+        Scalar hausdorff_error = 0.0, unsigned int edge_subset_size=100);
 
     //! Simplify mesh to \p n_vertices.
     void simplify(unsigned int n_vertices);
@@ -102,7 +102,11 @@ private:
     // compute distance from point p to triangle f
     Scalar distance(Face f, const Point& p) const;
 
-    void vertex_cost();
+    // get a random subset of the mesh of size n
+    void get_random_edge_subset(int n, std::vector<Edge>& edges_subset);
+
+    // mark the given edges as selected
+    void select_edges(std::vector<Edge>& edges_selection);
 
     SurfaceMesh& mesh_;
 
@@ -120,8 +124,7 @@ private:
     VertexProperty<bool> vselected_;
     VertexProperty<bool> vfeature_;
     EdgeProperty<bool> efeature_;
-
-    VertexProperty<float> vcost_;
+    EdgeProperty<bool> eselected_;
 
     PriorityQueue* queue_;
 
@@ -132,6 +135,7 @@ private:
     Scalar aspect_ratio_;
     Scalar edge_length_;
     unsigned int max_valence_;
+    unsigned int edge_subset_size_;
 };
 
 } // namespace neuralSubdiv

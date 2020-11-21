@@ -2,6 +2,9 @@
 
 #include <iterator>
 #include <limits>
+#include <algorithm>
+#include <random>
+#include <chrono>
 
 #include "pmp/algorithms/DistancePointTriangle.h"
 #include "pmp/algorithms/SurfaceNormals.h"
@@ -22,6 +25,7 @@ namespace neuralSubdiv {
 
         // add properties
         vquadric_ = mesh_.add_vertex_property<Quadric>("v:quadric");
+        eselected_ = mesh_.add_edge_property<bool>("e:selected");
 
         // get properties
         vpoint_ = mesh_.vertex_property<Point>("v:point");
@@ -37,17 +41,17 @@ namespace neuralSubdiv {
         mesh_.remove_vertex_property(vquadric_);
         mesh_.remove_face_property(normal_cone_);
         mesh_.remove_face_property(face_points_);
+        mesh_.remove_edge_property(eselected_);
     }
 
     void RandomDecimation::initialize(Scalar aspect_ratio, Scalar edge_length,
         unsigned int max_valence,
         Scalar normal_deviation,
-        Scalar hausdorff_error)
+        Scalar hausdorff_error,
+        unsigned int edge_subset_size)
     {
         if (!mesh_.is_triangle_mesh())
             return;
-
-        vcost_ = mesh_.add_vertex_property<float>("v:cost");
 
         // store parameters
         aspect_ratio_ = aspect_ratio;
@@ -55,6 +59,7 @@ namespace neuralSubdiv {
         edge_length_ = edge_length;
         normal_deviation_ = normal_deviation / 180.0 * M_PI;
         hausdorff_error_ = hausdorff_error;
+        edge_subset_size_ = edge_subset_size;
 
         // properties
         if (normal_deviation_ > 0.0)
@@ -67,8 +72,8 @@ namespace neuralSubdiv {
             mesh_.remove_face_property(face_points_);
 
         // vertex selection
-        has_selection_ = false;
         vselected_ = mesh_.get_vertex_property<bool>("v:selected");
+        has_selection_ = false;
         if (vselected_)
         {
             for (auto v : mesh_.vertices())
@@ -574,9 +579,27 @@ namespace neuralSubdiv {
         return dist_point_triangle(p, p0, p1, p2, n);
     }
 
-    void RandomDecimation::vertex_cost() {
-    
+    void RandomDecimation::get_random_edge_subset(int n, std::vector<Edge>& edges_subset) 
+    {
+        edges_subset.resize(mesh_.n_edges());
+
+        // std::copy doesn't work with mesh_.edges().......
+        int idx = 0;
+        for (auto eit : mesh_.edges())
+        {
+            edges_subset[idx] = eit;
+            idx++;
+        }
+        std::default_random_engine eng(std::chrono::steady_clock::now().time_since_epoch().count());
+        std::shuffle(edges_subset.begin(), edges_subset.end(), eng);
+        edges_subset.resize(n);
     }
+
+    void RandomDecimation::select_edges(std::vector<Edge>& edges_selection)
+    {
+
+    }
+
 
     RandomDecimation::CollapseData::CollapseData(SurfaceMesh& sm, Halfedge h)
         : mesh(sm)
