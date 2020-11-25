@@ -20,7 +20,7 @@ void TestViewer::process_imgui()
 
     if (ImGui::CollapsingHeader("Decimation", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        static int target_percentage = 10;
+        static int target_percentage = 50;
         ImGui::PushItemWidth(100);
         ImGui::SliderInt("Percentage", &target_percentage, 1, 99);
         ImGui::PopItemWidth();

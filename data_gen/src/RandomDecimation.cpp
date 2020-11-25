@@ -48,7 +48,8 @@ namespace neuralSubdiv {
         unsigned int max_valence,
         Scalar normal_deviation,
         Scalar hausdorff_error,
-        unsigned int edge_subset_size)
+        unsigned int edge_subset_size,
+        bool use_subset)
     {
         if (!mesh_.is_triangle_mesh())
             return;
@@ -60,6 +61,7 @@ namespace neuralSubdiv {
         normal_deviation_ = normal_deviation / 180.0 * M_PI;
         hausdorff_error_ = hausdorff_error;
         edge_subset_size_ = edge_subset_size;
+        use_subset_ = use_subset;
 
         // properties
         if (normal_deviation_ > 0.0)
@@ -161,6 +163,22 @@ namespace neuralSubdiv {
         heap_pos_ = mesh_.add_vertex_property<int>("v:heap");
         vtarget_ = mesh_.add_vertex_property<Halfedge>("v:target");
 
+        // select random edge subset
+        std::vector<Edge> edge_subset;
+        if (use_subset_)
+        {
+            if (mesh_.n_edges() < edge_subset_size_)
+            {
+                use_subset_ = false;
+            }
+            else 
+            {
+                get_random_edge_subset(edge_subset_size_, edge_subset);
+                for (auto it = edge_subset.begin(); it != edge_subset.end(); ++it)
+                eselected_[*it] = true;
+            }
+        }
+         
         // build priority queue
         HeapInterface hi(vpriority_, heap_pos_);
         queue_ = new PriorityQueue(hi);
@@ -197,6 +215,23 @@ namespace neuralSubdiv {
 
             // postprocessing, e.g., update quadrics
             postprocess_collapse(cd);
+
+            // clean previous edge selection and recompute selection
+            if (use_subset_)
+            {
+                for (auto it = edge_subset.begin(); it != edge_subset.end(); ++it)
+                    eselected_[*it] = false;
+                if (mesh_.n_edges() < edge_subset_size_)
+                {
+                    use_subset_ = false;
+                }
+                else
+                {
+                    get_random_edge_subset(edge_subset_size_, edge_subset);
+                    for (auto it = edge_subset.begin(); it != edge_subset.end(); ++it)
+                        eselected_[*it] = true;
+                }
+            }
 
             // update queue
             for (or_it = one_ring.begin(), or_end = one_ring.end(); or_it != or_end;
@@ -263,6 +298,10 @@ namespace neuralSubdiv {
             if (!vselected_[cd.v0])
                 return false;
         }
+
+        // test edge subset selection
+        if (use_subset_ && !eselected_[mesh_.edge(cd.v0v1)])
+            return false;
 
         // test features
         if (has_features_)
