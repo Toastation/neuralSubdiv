@@ -23,13 +23,13 @@ function [UV,FUV,subsetVIdx,subsetFIdx,b,bc] = lscmOneRing(V,F,e)
 
 vi = e(1);
 vj = e(2);
-[adjFi,~] = find(F == vi);
-[adjFj,~] = find(F == vj);
-adjF = unique([adjFi; adjFj]);
+[adjFi,~] = find(F == vi); % adjacent faces of vi
+[adjFj,~] = find(F == vj); % adjacent faces of vj
+adjF = unique([adjFi; adjFj]); 
 
-lij = norm(V(vi,:) - V(vj,:));
+lij = norm(V(vi,:) - V(vj,:)); % edge ij length
 
-FL = F(adjF,:);
+FL = F(adjF,:); % onering face list
 [VL,IM,subsetVIdx] = remove_unreferenced(V,FL);
 FUV = IM(FL);
 viL = find(subsetVIdx == vi);

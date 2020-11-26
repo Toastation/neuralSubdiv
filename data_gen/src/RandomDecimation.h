@@ -2,6 +2,7 @@
 
 #include <set>
 #include <vector>
+#include <random>
 
 #include "pmp/SurfaceMesh.h"
 #include "pmp/algorithms/Heap.h"
@@ -14,7 +15,7 @@ namespace neuralSubdiv {
 
 // Based on pmp::SurfaceSimplification
 // Adds random decimation and succesive self-parametrization
-// TODO: check if mesh is closed
+// TODO: check if mesh is closed, check edge intersection after decimation?
 class RandomDecimation {
 public:
     //! Construct with mesh to be simplified.
@@ -105,9 +106,6 @@ private:
     // get a random subset of the mesh of size n
     void get_random_edge_subset(int n, std::vector<Edge>& edges_subset);
 
-    // mark the given edges as selected
-    void select_edges(std::vector<Edge>& edges_selection);
-
     SurfaceMesh& mesh_;
 
     bool initialized_;
@@ -137,6 +135,8 @@ private:
     Scalar edge_length_;
     unsigned int max_valence_;
     unsigned int edge_subset_size_;
+
+    std::default_random_engine eng_;
 };
 
 } // namespace neuralSubdiv

@@ -3,7 +3,6 @@
 #include <iterator>
 #include <limits>
 #include <algorithm>
-#include <random>
 #include <chrono>
 
 #include "pmp/algorithms/DistancePointTriangle.h"
@@ -14,7 +13,7 @@ using namespace pmp;
 namespace neuralSubdiv {
 
     RandomDecimation::RandomDecimation(SurfaceMesh& mesh)
-        : mesh_(mesh), initialized_(false), queue_(nullptr)
+        : mesh_(mesh), initialized_(false), queue_(nullptr), eng_(std::chrono::steady_clock::now().time_since_epoch().count())
 
     {
         aspect_ratio_ = 0;
@@ -175,7 +174,7 @@ namespace neuralSubdiv {
             {
                 get_random_edge_subset(edge_subset_size_, edge_subset);
                 for (auto it = edge_subset.begin(); it != edge_subset.end(); ++it)
-                eselected_[*it] = true;
+                    eselected_[*it] = true;
             }
         }
          
@@ -621,24 +620,16 @@ namespace neuralSubdiv {
     void RandomDecimation::get_random_edge_subset(int n, std::vector<Edge>& edges_subset) 
     {
         edges_subset.resize(mesh_.n_edges());
-
-        // std::copy doesn't work with mesh_.edges().......
+        // std::copy doesn't work with mesh_.edges()?......
         int idx = 0;
         for (auto eit : mesh_.edges())
         {
             edges_subset[idx] = eit;
             idx++;
         }
-        std::default_random_engine eng(std::chrono::steady_clock::now().time_since_epoch().count());
-        std::shuffle(edges_subset.begin(), edges_subset.end(), eng);
+        std::shuffle(edges_subset.begin(), edges_subset.end(), eng_);
         edges_subset.resize(n);
     }
-
-    void RandomDecimation::select_edges(std::vector<Edge>& edges_selection)
-    {
-
-    }
-
 
     RandomDecimation::CollapseData::CollapseData(SurfaceMesh& sm, Halfedge h)
         : mesh(sm)
