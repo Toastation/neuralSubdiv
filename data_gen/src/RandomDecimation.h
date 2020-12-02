@@ -106,6 +106,8 @@ private:
     // get a random subset of the mesh of size n
     void get_random_edge_subset(int n, std::vector<Edge>& edges_subset);
 
+    void self_param();
+
     SurfaceMesh& mesh_;
 
     bool initialized_;

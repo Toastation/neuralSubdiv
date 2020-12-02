@@ -42,7 +42,12 @@ void TestViewer::process_imgui()
             update_mesh();
             std::cout << "nb vertices after decimation: " << mesh_.n_vertices() << std::endl;*/
             pmp::Edge edge(403);
-            neuralSubdiv::flatten_one_ring(mesh_, edge);
+            Eigen::Vector2i boundary_idx;
+            Eigen::MatrixXi F_uv, V_map, F_map;
+            Eigen::MatrixXd uv, boundary_constraints;
+            neuralSubdiv::flatten_one_ring(mesh_, edge, uv, F_uv, boundary_idx, boundary_constraints, 
+                                           V_map, F_map);
+            neuralSubdiv::check_lscm_self_folding(uv, F_uv, boundary_idx);
             update_mesh();
         }
     }

@@ -3,11 +3,12 @@
 #include "igl/slice.h"
 #include "igl/remove_unreferenced.h"
 #include "igl/lscm.h"
-
-#include "pmp/algorithms/SurfaceNormals.h"
+#include "igl/internal_angles.h"
+#include "igl/squared_edge_lengths.h"
 
 #include <vector>
-#include <set>
+#include <cassert>
+#include <cmath>
 
 namespace neuralSubdiv {
 
@@ -28,17 +29,15 @@ namespace neuralSubdiv {
 	}
 
 
-	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Edge& e)
+	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Edge& e, 
+				          Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv,
+						  Eigen::Vector2i& boundary_idx, Eigen::MatrixXd& boundary_constraints,
+						  Eigen::MatrixXi& V_map, Eigen::MatrixXi& F_map)
 	{
 		pmp::Vertex vi = meshIn.vertex(e, 0);
 		pmp::Vertex vj = meshIn.vertex(e, 1);
 		Eigen::MatrixXd V(meshIn.n_vertices(), 3);
 		Eigen::MatrixXi F(meshIn.n_faces(), 3);
-		Eigen::MatrixXi b;
-		Eigen::MatrixXd bc;
-		
-		//auto tex = meshIn.vertex_property<pmp::TexCoord>("v:tex");
-
 		neuralSubdiv::positions_to_matrix(meshIn.positions(), V); // TODO: should use Eigen::Map instead
 		neuralSubdiv::faces_to_matrix(meshIn, F);
 
@@ -64,40 +63,61 @@ namespace neuralSubdiv {
 		one_ring_faces.resize(std::distance(one_ring_faces.begin(), it));
 		
 		// get faces that are in the one-ring
-		Eigen::MatrixXi F_onering_idx = Eigen::Map<Eigen::MatrixXi>(one_ring_faces.data(), one_ring_faces.size(), 1);
 		Eigen::MatrixXi F_onering;
-		igl::slice(F, F_onering_idx, 1, F_onering);
+		F_map = Eigen::Map<Eigen::MatrixXi>(one_ring_faces.data(), one_ring_faces.size(), 1);
+		igl::slice(F, F_map, 1, F_onering);
 
 		// get vertices that are in the one-ring
-		Eigen::MatrixXi F_uv, I, J;
+		Eigen::MatrixXi I;
 		Eigen::MatrixXd V_uv;
-		igl::remove_unreferenced(V, F_onering, V_uv, F_uv, I, J);
+		igl::remove_unreferenced(V, F_onering, V_uv, F_uv, I, V_map);
 
 		// find vi and vj indices FUV
 		int vi_uv = -1, vj_uv = -1;
-		for (int i = 0; i < J.rows(); i++)
+		for (int i = 0; i < V_map.rows(); i++)
 		{
-			if (J(i) == static_cast<int>(vi.idx()))
+			if (V_map(i) == static_cast<int>(vi.idx()))
 				vi_uv = i;
-			if (J(i) == static_cast<int>(vj.idx()))
+			if (V_map(i) == static_cast<int>(vj.idx()))
 				vj_uv = i;
 			if (vi_uv != -1 && vj_uv != -1) break;
 		}
 
 		// boundary vertex idx in the uv reference
-		Eigen::VectorXi boundary_idx(2);
+		boundary_idx.resize(2);
 		boundary_idx << vi_uv, vj_uv;
 
 		double ij_norm = static_cast<double>(pmp::norm((meshIn.position(vi) - meshIn.position(vj))));
 
 		// corresponding boundary constraints
-		Eigen::MatrixXd boundary_constraints(2, 2);
+		boundary_constraints.resize(2, 2);
 		boundary_constraints << 0.0, 0.0,
 								5.0*ij_norm, 0.0;
 
 		// minimize conformal energy
-		Eigen::MatrixXd uv;
 		igl::lscm(V_uv, F_uv, boundary_idx, boundary_constraints, uv);
+	}
+
+	void check_lscm_self_folding(Eigen::MatrixXd& uv, Eigen::MatrixXi& f_uv, Eigen::Vector2i& boundary_idx)
+	{
+		Eigen::MatrixXd sl;
+		Eigen::MatrixXd angles;
+		igl::squared_edge_lengths(uv, f_uv, sl);
+		igl::internal_angles_using_squared_edge_lengths(sl, angles);
+		double sum_angle_vi = 0.0, sum_angle_vj = 0.0;
+		assert(angles.rows() == f_uv.rows());
+		for (int i = 0; i < angles.rows(); ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				if (f_uv(i, j) == boundary_idx[0])
+					sum_angle_vi += angles(i, j);
+				if (f_uv(i, j) == boundary_idx[1])
+					sum_angle_vj += angles(i, j);
+			}
+		}
+		assert(sum_angle_vi < 2.0 * M_PI + 1e-7);
+		assert(sum_angle_vj < 2.0 * M_PI + 1e-7);
 	}
 }
 

@@ -631,6 +631,11 @@ namespace neuralSubdiv {
         edges_subset.resize(n);
     }
 
+    void self_param()
+    {
+        
+    }
+
     RandomDecimation::CollapseData::CollapseData(SurfaceMesh& sm, Halfedge h)
         : mesh(sm)
     {

@@ -9,7 +9,14 @@ namespace neuralSubdiv {
 	void normalize_unit_box(pmp::SurfaceMesh& meshIn);
 
 	// Flatten the one ring of the edge V[edge[0]],V[edge[1]]
-	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Edge& edge);
+	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Edge& e, 
+						Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv,
+						Eigen::Vector2i& boundary_idx, Eigen::MatrixXd& boundary_constraints,
+						Eigen::MatrixXi& V_map, Eigen::MatrixXi& F_map);
+
+	// appendix C. paragraph 3
+	// check that the total angle around vi and vj is 2*pi 
+	void check_lscm_self_folding(Eigen::MatrixXd& uv, Eigen::MatrixXi& f_uv, Eigen::Vector2i& boundary_idx);
 
 	// TO FIX: convert directly from meshIn.positions() to eigen matrix but seems rather tricky with Eigen::Map(?)
 	// std::vector<Eigen::Matrix<float, 3, 1>>  to something like   Eigen::MatrixXf(N, 3)  
