@@ -1,3 +1,6 @@
 [submodule "data_gen/external/pmp-library"]
 	path = data_gen/external/pmp-library
 	url = https://github.com/pmp-library/pmp-library
+[submodule "data_gen/external/libigl"]
+	path = data_gen/external/libigl
+	url = https://github.com/libigl/libigl.git

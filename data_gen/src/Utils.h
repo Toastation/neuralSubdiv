@@ -2,33 +2,17 @@
 
 #include <pmp/SurfaceMesh.h>
 
-#include <vector>
-
 using namespace pmp;
 
 
 namespace neuralSubdiv {
 
-	/**
-	 * Normalize meshIn vertex coords inside the unit box
-	 *
-	 * TODO: pass in a meshOut instead of modifying the meshIn?
-	 */
-	void normalize_unit_box(SurfaceMesh& meshIn) {
-		BoundingBox box = meshIn.bounds();
-		Point min = box.min();
-		double maxComponent = -10e9;
-		for (auto vit : meshIn.vertices()) {
-			meshIn.position(vit) -= min;
-			for (int i = 0; i < 3; i++)
-				if (meshIn.position(vit)[i] > maxComponent)
-					maxComponent = meshIn.position(vit)[i];
-		}
-		for (auto vit : meshIn.vertices()) {
-			meshIn.position(vit) /= maxComponent;
-		}
-		//box = meshIn.bounds();
-		//std::cout << "min " << box.min() << "  |  max " << box.max() << std::endl;
-	}
+	// Normalize meshIn vertex coords inside the unit box
+	// TODO: pass in a meshOut instead of modifying the meshIn?
+	void normalize_unit_box(SurfaceMesh& meshIn);
+
+	// Flatten the one ring of the edge V[edge[0]],V[edge[1]]
+	void flatten_one_ring(SurfaceMesh& meshIn, Edge& edge);
+
 
 } // namespace neuralSubdiv

@@ -36,7 +36,7 @@ viL = find(subsetVIdx == vi);
 vjL = find(subsetVIdx == vj);
 
 b = [viL, vjL];
-bc = [0,0; 5*lij, 0];
+bc = [0,0; 5*lij, 0]; % why factor 5?
 UV = lscm(VL,FUV,b,bc);
 subsetFIdx = adjF;
 
