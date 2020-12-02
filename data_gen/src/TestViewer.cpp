@@ -1,5 +1,6 @@
 #include "TestViewer.h"
 #include "RandomDecimation.h"
+#include "Utils.h"
 
 #include <imgui.h>
 #include <pmp/algorithms/SurfaceSimplification.h>
@@ -35,11 +36,14 @@ void TestViewer::process_imgui()
 
         if (ImGui::Button("Decimate it!"))
         {
-            neuralSubdiv::RandomDecimation rd(mesh_);
+            /*neuralSubdiv::RandomDecimation rd(mesh_);
             rd.initialize();
             rd.simplify(mesh_.n_vertices() * 0.01 * target_percentage);
             update_mesh();
-            std::cout << "nb vertices after decimation: " << mesh_.n_vertices() << std::endl;
+            std::cout << "nb vertices after decimation: " << mesh_.n_vertices() << std::endl;*/
+            pmp::Edge edge(403);
+            neuralSubdiv::flatten_one_ring(mesh_, edge);
+            update_mesh();
         }
     }
 }

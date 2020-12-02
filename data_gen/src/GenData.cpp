@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "Utils.h"
 #include "RandomDecimation.h"
 #include "TestViewer.h"
 
@@ -36,6 +36,10 @@ int main(int argc, char** argv) {
 	int nTargetVertex = tv_average + round(tv_variance * (r - 0.5));
 
 	neuralSubdiv::normalize_unit_box(mesh);
+
+
+
+	mesh.write("bunny2.ply");
 
 	//neuralSubdiv::RandomDecimation rd(mesh);
 	//rd.initialize();
