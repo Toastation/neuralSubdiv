@@ -16,7 +16,7 @@ namespace neuralSubdiv {
 	// (it should technically also cast the scalars to double but we can take of that afterwards) 
 	static inline void positions_to_matrix(std::vector<pmp::Point>& P, Eigen::MatrixXd& V) 
 	{
-		for (int i = 0; i < P.size(); i++)
+		for (size_t i = 0; i < P.size(); i++)
 			V.row(i) = (static_cast<Eigen::Matrix<float, 3, 1>>(P[i])).cast<double>();
 	}
 

@@ -29,17 +29,13 @@ int main(int argc, char** argv) {
 	std::cout << "res : " << res << std::endl;
 	std::cout << "vertex count: " << mesh.n_vertices() << std::endl;
 
-	int tv_average = 300; // target average number of vertices
-	int tv_variance = 100;
-	int nb_subd = 2;
-	double r = std::rand() / (double)RAND_MAX;
-	int nTargetVertex = tv_average + round(tv_variance * (r - 0.5));
+	// int tv_average = 300; // target average number of vertices
+	// int tv_variance = 100;
+	// int nb_subd = 2;
+	// double r = std::rand() / (double)RAND_MAX;
+	// int nTargetVertex = tv_average + round(tv_variance * (r - 0.5));
 
 	neuralSubdiv::normalize_unit_box(mesh);
-
-
-
-	mesh.write("bunny2.ply");
 
 	//neuralSubdiv::RandomDecimation rd(mesh);
 	//rd.initialize();

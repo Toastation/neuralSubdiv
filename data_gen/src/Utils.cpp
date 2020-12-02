@@ -77,9 +77,9 @@ namespace neuralSubdiv {
 		int vi_uv = -1, vj_uv = -1;
 		for (int i = 0; i < J.rows(); i++)
 		{
-			if (J(i) == vi.idx())
+			if (J(i) == static_cast<int>(vi.idx()))
 				vi_uv = i;
-			if (J(i) == vj.idx())
+			if (J(i) == static_cast<int>(vj.idx()))
 				vj_uv = i;
 			if (vi_uv != -1 && vj_uv != -1) break;
 		}
@@ -96,10 +96,8 @@ namespace neuralSubdiv {
 								5.0*ij_norm, 0.0;
 
 		// minimize conformal energy
-		//Eigen::MatrixXd uv;
-		//igl::lscm(V_uv, F_uv, boundary_constraints, boundary_constraints, uv);
-
-		//std::cout << uv << std::endl;
+		Eigen::MatrixXd uv;
+		igl::lscm(V_uv, F_uv, boundary_idx, boundary_constraints, uv);
 	}
 }
 
