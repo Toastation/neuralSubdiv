@@ -10,7 +10,6 @@
 
 #include <pmp/SurfaceMesh.h>
 
-using namespace pmp;
 //using namespace neuralSubdiv;
 
 int main(int argc, char** argv) {
@@ -25,7 +24,7 @@ int main(int argc, char** argv) {
 	TestViewer window("Test gendata", 800, 600);
 
 	
-	SurfaceMesh mesh;
+	pmp::SurfaceMesh mesh;
 	bool res = mesh.read(argv[1]);
 	std::cout << "res : " << res << std::endl;
 	std::cout << "vertex count: " << mesh.n_vertices() << std::endl;

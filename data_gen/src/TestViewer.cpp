@@ -4,16 +4,14 @@
 #include <imgui.h>
 #include <pmp/algorithms/SurfaceSimplification.h>
 
-using namespace pmp;
-
-TestViewer::TestViewer(const char* title, int width, int height) : MeshViewer(title, width, height) {
+TestViewer::TestViewer(const char* title, int width, int height) : pmp::MeshViewer(title, width, height) {
 	set_draw_mode("Hidden line");
 	crease_angle_ = 0.0;
 }
 
 void TestViewer::process_imgui()
 {
-    MeshViewer::process_imgui();
+    pmp::MeshViewer::process_imgui();
 
     ImGui::Spacing();
     ImGui::Spacing();

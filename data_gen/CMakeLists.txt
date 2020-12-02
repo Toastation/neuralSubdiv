@@ -8,6 +8,8 @@ set(PROJECT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR})
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
 
 # compile PMP library
 set(PMP_BUILD_APPS     OFF CACHE BOOL "")
@@ -16,12 +18,21 @@ set(PMP_BUILD_TESTS    OFF CACHE BOOL "")
 set(PMP_BUILD_DOCS     OFF CACHE BOOL "")
 add_subdirectory(external/pmp-library)
 
+### libIGL options: choose between header only and compiled static library
+option(LIBIGL_USE_STATIC_LIBRARY     "Use libigl as static library" OFF)
+option(LIBIGL_WITH_OPENGL            "Use OpenGL"         ON)
+option(LIBIGL_WITH_OPENGL_GLFW       "Use GLFW"           ON)
+
+find_package(LIBIGL REQUIRED)
+
 # add include directories
 include_directories(${PROJECT_SOURCE_DIR}/external/pmp-library/src)
 include_directories(${PROJECT_SOURCE_DIR}/external/pmp-library/external/imgui)
 include_directories(${PROJECT_SOURCE_DIR}/external/pmp-library/external/eigen)
 include_directories(${PROJECT_SOURCE_DIR}/external/pmp-library/external/glfw/include)
 include_directories(${PROJECT_SOURCE_DIR}/external/pmp-library/external/glew/include)
+
+include_directories(${PROJECT_SOURCE_DIR}/external/libigl/include/igl)
 
 # set default compiler flags
 if((UNIX OR APPLE) AND CMAKE_COMPILER_IS_GNUCXX)

@@ -2,9 +2,7 @@
 
 #include <pmp/visualization/MeshViewer.h>
 
-using namespace pmp;
-
-class TestViewer : public MeshViewer
+class TestViewer : public pmp::MeshViewer
 {
 public:
 	TestViewer(const char* title, int width, int height);
