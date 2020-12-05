@@ -16,6 +16,7 @@ set(PMP_BUILD_APPS     OFF CACHE BOOL "")
 set(PMP_BUILD_EXAMPLES OFF CACHE BOOL "")
 set(PMP_BUILD_TESTS    OFF CACHE BOOL "")
 set(PMP_BUILD_DOCS     OFF CACHE BOOL "")
+add_definitions(-DPMP_SCALAR_TYPE_64)
 add_subdirectory(external/pmp-library)
 
 ### libIGL options: choose between header only and compiled static library

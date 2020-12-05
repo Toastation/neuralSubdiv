@@ -36,9 +36,10 @@ namespace neuralSubdiv {
 	{
 		pmp::Vertex vi = meshIn.vertex(e, 0);
 		pmp::Vertex vj = meshIn.vertex(e, 1);
-		Eigen::MatrixXd V(meshIn.n_vertices(), 3);
+		Eigen::Map< Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor > > V(meshIn.positions()[0].data(), meshIn.positions().size(), 3);
 		Eigen::MatrixXi F(meshIn.n_faces(), 3);
-		neuralSubdiv::positions_to_matrix(meshIn.positions(), V); // TODO: should use Eigen::Map instead
+		//neuralSubdiv::positions_to_matrix(meshIn.positions(), V); // TODO: should use Eigen::Map instead
+
 		neuralSubdiv::faces_to_matrix(meshIn, F);
 
 		// find one ring faces (without duplicates, easier with the pmp halfedge structure)
@@ -92,7 +93,7 @@ namespace neuralSubdiv {
 		// corresponding boundary constraints
 		boundary_constraints.resize(2, 2);
 		boundary_constraints << 0.0, 0.0,
-								5.0*ij_norm, 0.0;
+								5.0 * ij_norm, 0.0;
 
 		// minimize conformal energy
 		igl::lscm(V_uv, F_uv, boundary_idx, boundary_constraints, uv);

@@ -24,7 +24,7 @@ namespace neuralSubdiv {
 	static inline void positions_to_matrix(std::vector<pmp::Point>& P, Eigen::MatrixXd& V) 
 	{
 		for (size_t i = 0; i < P.size(); i++)
-			V.row(i) = (static_cast<Eigen::Matrix<float, 3, 1>>(P[i])).cast<double>();
+			V.row(i) = static_cast<Eigen::Matrix<double, 3, 1>>(P[i]);
 	}
 
 	// This one I don't how to use the data from pmp::SurfaceMesh 
