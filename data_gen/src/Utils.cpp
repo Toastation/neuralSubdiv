@@ -29,18 +29,14 @@ namespace neuralSubdiv {
 	}
 
 
-	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Edge& e, 
-				          Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv,
+	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Edge& e, Eigen::MatrixXi& F,
+				          Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv, Eigen::MatrixXi& F_onering,
 						  Eigen::Vector2i& boundary_idx, Eigen::MatrixXd& boundary_constraints,
-						  Eigen::MatrixXi& V_map, Eigen::MatrixXi& F_map)
+						  Eigen::MatrixXi& V_map, Eigen::ArrayXi& F_map)
 	{
 		pmp::Vertex vi = meshIn.vertex(e, 0);
 		pmp::Vertex vj = meshIn.vertex(e, 1);
 		Eigen::Map< Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor > > V(meshIn.positions()[0].data(), meshIn.positions().size(), 3);
-		Eigen::MatrixXi F(meshIn.n_faces(), 3);
-		//neuralSubdiv::positions_to_matrix(meshIn.positions(), V); // TODO: should use Eigen::Map instead
-
-		neuralSubdiv::faces_to_matrix(meshIn, F);
 
 		// find one ring faces (without duplicates, easier with the pmp halfedge structure)
 		std::vector<int> one_ring_faces(meshIn.valence(vi) + meshIn.valence(vj));
@@ -64,8 +60,7 @@ namespace neuralSubdiv {
 		one_ring_faces.resize(std::distance(one_ring_faces.begin(), it));
 		
 		// get faces that are in the one-ring
-		Eigen::MatrixXi F_onering;
-		F_map = Eigen::Map<Eigen::MatrixXi>(one_ring_faces.data(), one_ring_faces.size(), 1);
+		F_map = Eigen::Map<Eigen::ArrayXi>(one_ring_faces.data(), one_ring_faces.size());
 		igl::slice(F, F_map, 1, F_onering);
 
 		// get vertices that are in the one-ring
@@ -99,14 +94,15 @@ namespace neuralSubdiv {
 		igl::lscm(V_uv, F_uv, boundary_idx, boundary_constraints, uv);
 	}
 
-	void check_lscm_self_folding(Eigen::MatrixXd& uv, Eigen::MatrixXi& f_uv, Eigen::Vector2i& boundary_idx)
+	bool check_lscm_self_folding(Eigen::MatrixXd& uv, Eigen::MatrixXi& f_uv, Eigen::Vector2i& boundary_idx)
 	{
 		Eigen::MatrixXd sl;
 		Eigen::MatrixXd angles;
 		igl::squared_edge_lengths(uv, f_uv, sl);
 		igl::internal_angles_using_squared_edge_lengths(sl, angles);
 		double sum_angle_vi = 0.0, sum_angle_vj = 0.0;
-		assert(angles.rows() == f_uv.rows());
+		if (angles.rows() == f_uv.rows()) return false;
+		// sum angles where vi or vj appear
 		for (int i = 0; i < angles.rows(); ++i)
 		{
 			for (int j = 0; j < 3; ++j)
@@ -117,8 +113,35 @@ namespace neuralSubdiv {
 					sum_angle_vj += angles(i, j);
 			}
 		}
-		assert(sum_angle_vi < 2.0 * M_PI + 1e-7);
-		assert(sum_angle_vj < 2.0 * M_PI + 1e-7);
+		return (sum_angle_vi < 2.0 * M_PI + 1e-7)
+			&& (sum_angle_vj < 2.0 * M_PI + 1e-7);
+	}
+
+	bool check_link_condition(pmp::SurfaceMesh& meshIn, pmp::Edge& e)
+	{
+		pmp::Vertex vi = meshIn.vertex(e, 0);
+		pmp::Vertex vj = meshIn.vertex(e, 1);
+		std::vector<int> vi_neighbordhood;
+		int vertices[2];
+		int count = 0;
+		// vi neighborhood vertices
+		for (auto v_it : meshIn.vertices(vi))
+			vi_neighbordhood.push_back(v_it.idx());
+		// check that vj's has at most 2 in common with vi's
+		for (auto v_it : meshIn.vertices(vj))
+		{
+			if (std::find(vi_neighbordhood.begin(), vi_neighbordhood.end(), v_it.idx()) != vi_neighbordhood.end())
+			{
+				return false; 
+				vertices[count] = v_it.idx();
+				++count;
+			}
+		}
+		// check if the two common vertices are connected
+		for (auto v_it : meshIn.vertices(pmp::Vertex(vertices[0])))
+			if (v_it.idx() == vertices[1])
+				return false;
+		return true;
 	}
 }
 

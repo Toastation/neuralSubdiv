@@ -62,6 +62,14 @@ private:
         Halfedge v1vl, vlv0, v0vr, vrv1;
     };
 
+    struct DecInfo
+    {
+        pmp::Vertex vi;
+        Eigen::Vector2i boundary_idx;
+        Eigen::MatrixXd uv, uv_previous;
+        Eigen::MatrixXi F_uv, F_uv_previous, V_map;
+    };
+
     // Heap interface
     class HeapInterface
     {
