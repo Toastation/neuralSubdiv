@@ -1,4 +1,5 @@
 #include "RandomDecimation.h"
+#include "Utils.h"
 
 #include <iterator>
 #include <limits>
@@ -207,6 +208,37 @@ namespace neuralSubdiv {
                 one_ring.push_back(vv);
             }
 
+            Eigen::MatrixXi F(mesh_.n_faces(), 3);
+            neuralSubdiv::faces_to_matrix(mesh_, F);
+
+            std::cout << nv << std::endl;
+            //pmp::Edge edge(403);
+            pmp::Vertex vi = cd.v1; pmp::Vertex vj = cd.v0;
+            Eigen::Vector2i boundary_idx;
+            Eigen::MatrixXi F_uv, F_onering, V_map;
+            Eigen::MatrixXd uv, boundary_constraints;
+            Eigen::ArrayXi F_map;
+            neuralSubdiv::flatten_one_ring(mesh_, vi, vj, F,
+                uv, F_uv, F_onering,
+                boundary_idx, boundary_constraints,
+                V_map, F_map);
+            std::cout << "yes" << std::endl;
+
+            //std::cout << "flatten onering ok" << std::endl;
+
+            //neuralSubdiv::check_lscm_self_folding(uv, F_uv, boundary_idx);
+
+            //std::cout << "check lscm ok" << std::endl;
+
+            //neuralSubdiv::check_link_condition(mesh_, pmp::Edge(30));
+
+            //std::cout << "check linked condition ok" << std::endl;
+
+            //std::vector<pmp::Normal> face_normals(F_onering.rows());
+            //// compute normals for face onering (normalized)
+            //for (int i = 0; i < F_onering.rows(); ++i)
+            //    face_normals[i] = pmp::SurfaceNormals::compute_face_normal(mesh_, pmp::Face(F_onering(i)));
+
             // perform collapse
             mesh_.collapse(h);
             --nv;
@@ -236,11 +268,11 @@ namespace neuralSubdiv {
             for (or_it = one_ring.begin(), or_end = one_ring.end(); or_it != or_end;
                 ++or_it)
                 enqueue_vertex(*or_it);
+            mesh_.garbage_collection();
         }
 
         // clean up
         delete queue_;
-        mesh_.garbage_collection();
         mesh_.remove_vertex_property(vpriority_);
         mesh_.remove_vertex_property(heap_pos_);
         mesh_.remove_vertex_property(vtarget_);
@@ -629,11 +661,6 @@ namespace neuralSubdiv {
         }
         std::shuffle(edges_subset.begin(), edges_subset.end(), eng_);
         edges_subset.resize(n);
-    }
-
-    void self_param()
-    {
-        
     }
 
     RandomDecimation::CollapseData::CollapseData(SurfaceMesh& sm, Halfedge h)

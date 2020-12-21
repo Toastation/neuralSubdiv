@@ -6,6 +6,8 @@
 #include "igl/internal_angles.h"
 #include "igl/squared_edge_lengths.h"
 
+#include "pmp/algorithms/SurfaceNormals.h"
+
 #include <vector>
 #include <cassert>
 #include <cmath>
@@ -29,14 +31,14 @@ namespace neuralSubdiv {
 	}
 
 
-	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Edge& e, Eigen::MatrixXi& F,
+	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, pmp::Vertex& vj, Eigen::MatrixXi& F,
 				          Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv, Eigen::MatrixXi& F_onering,
 						  Eigen::Vector2i& boundary_idx, Eigen::MatrixXd& boundary_constraints,
 						  Eigen::MatrixXi& V_map, Eigen::ArrayXi& F_map)
 	{
-		pmp::Vertex vi = meshIn.vertex(e, 0);
-		pmp::Vertex vj = meshIn.vertex(e, 1);
 		Eigen::Map< Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor > > V(meshIn.positions()[0].data(), meshIn.positions().size(), 3);
+		std::cout << V.rows() << std::endl;
+		std::cout << F.rows() << std::endl;
 
 		// find one ring faces (without duplicates, easier with the pmp halfedge structure)
 		std::vector<int> one_ring_faces(meshIn.valence(vi) + meshIn.valence(vj));
@@ -141,6 +143,28 @@ namespace neuralSubdiv {
 		for (auto v_it : meshIn.vertices(pmp::Vertex(vertices[0])))
 			if (v_it.idx() == vertices[1])
 				return false;
+		return true;
+	}
+
+	bool reconnect_faces(Eigen::MatrixXi& F, Eigen::ArrayXi& F_map, int i, int j, Eigen::Vector2i& del_faces_idx)
+	{
+		// replace occurences of vj with vi
+		F = (F.array() == j).select(i, F);
+		// detect and check faces that need to be deleted
+		int del_face_count = 0;
+		for (int idx : F_map)
+		{
+			if (F(idx, 0) == F(idx, 1) || F(idx, 0) == F(idx, 2) || F(idx, 1) == F(idx, 2))
+			{
+				if (del_face_count > 1)
+				{
+					std::cerr << "Error, #faces to delete should be 2" << std::endl;
+					return false;
+				}
+				del_faces_idx[del_face_count] = idx;
+				del_face_count++;
+			}
+		}
 		return true;
 	}
 }

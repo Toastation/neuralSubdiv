@@ -9,7 +9,7 @@ namespace neuralSubdiv {
 	void normalize_unit_box(pmp::SurfaceMesh& meshIn);
 
 	// Flatten the one ring of the edge V[edge[0]],V[edge[1]]
-	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Edge& e, Eigen::MatrixXi& F,
+	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, pmp::Vertex& vj, Eigen::MatrixXi& F,
 						Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv, Eigen::MatrixXi& F_onering,
 						Eigen::Vector2i& boundary_idx, Eigen::MatrixXd& boundary_constraints,
 						Eigen::MatrixXi& V_map, Eigen::ArrayXi& F_map);
@@ -21,6 +21,8 @@ namespace neuralSubdiv {
 	// appendix C. paragraph 4
 	// check if there are non-manifold edges
 	bool check_link_condition(pmp::SurfaceMesh& meshIn, pmp::Edge& e);
+
+	bool reconnect_faces(Eigen::MatrixXi& F, Eigen::ArrayXi& F_map, int i, int j, Eigen::Vector2i& del_faces_idx);
 
 	// This one I don't how to use the data from pmp::SurfaceMesh 
 	static inline void faces_to_matrix(pmp::SurfaceMesh& meshIn, Eigen::MatrixXi& F)
