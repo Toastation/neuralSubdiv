@@ -204,35 +204,32 @@ namespace neuralSubdiv {
             // store one-ring
             one_ring.clear();
             for (auto vv : mesh_.vertices(cd.v0))
-            {
                 one_ring.push_back(vv);
-            }
 
             Eigen::MatrixXi F(mesh_.n_faces(), 3);
             neuralSubdiv::faces_to_matrix(mesh_, F);
 
+#ifdef DEBUG_PRINT
             std::cout << nv << std::endl;
-            //pmp::Edge edge(403);
+#endif
+
             pmp::Vertex vi = cd.v1; pmp::Vertex vj = cd.v0;
             Eigen::Vector2i boundary_idx;
-            Eigen::MatrixXi F_uv, F_onering, V_map;
+            Eigen::MatrixXi F_uv, F_onering, V_map, F_map;
             Eigen::MatrixXd uv, boundary_constraints;
-            Eigen::ArrayXi F_map;
             neuralSubdiv::flatten_one_ring(mesh_, vi, vj, F,
                 uv, F_uv, F_onering,
                 boundary_idx, boundary_constraints,
                 V_map, F_map);
-            std::cout << "yes" << std::endl;
+            
+#ifdef DEBUG_PRINT
+            std::cout << "uv" << std::endl;
+            std::cout << uv << std::endl;
+#endif 
 
-            //std::cout << "flatten onering ok" << std::endl;
 
-            //neuralSubdiv::check_lscm_self_folding(uv, F_uv, boundary_idx);
-
-            //std::cout << "check lscm ok" << std::endl;
-
-            //neuralSubdiv::check_link_condition(mesh_, pmp::Edge(30));
-
-            //std::cout << "check linked condition ok" << std::endl;
+            neuralSubdiv::check_lscm_self_folding(uv, F_uv, boundary_idx);
+            neuralSubdiv::check_link_condition(mesh_, mesh_.edge(cd.v0v1));
 
             //std::vector<pmp::Normal> face_normals(F_onering.rows());
             //// compute normals for face onering (normalized)
@@ -242,10 +239,10 @@ namespace neuralSubdiv {
             // perform collapse
             mesh_.collapse(h);
             --nv;
-            //if (nv % 1000 == 0) std::cerr << nv << "\r";
-
             // postprocessing, e.g., update quadrics
             postprocess_collapse(cd);
+
+            flatten_one_ring_after(mesh_, cd.v1, uv, V_map);
 
             // clean previous edge selection and recompute selection
             if (use_subset_)
@@ -268,11 +265,11 @@ namespace neuralSubdiv {
             for (or_it = one_ring.begin(), or_end = one_ring.end(); or_it != or_end;
                 ++or_it)
                 enqueue_vertex(*or_it);
-            mesh_.garbage_collection();
         }
 
         // clean up
         delete queue_;
+        mesh_.garbage_collection();
         mesh_.remove_vertex_property(vpriority_);
         mesh_.remove_vertex_property(heap_pos_);
         mesh_.remove_vertex_property(vtarget_);

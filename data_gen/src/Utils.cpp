@@ -9,6 +9,7 @@
 #include "pmp/algorithms/SurfaceNormals.h"
 
 #include <vector>
+#include <map>
 #include <cassert>
 #include <cmath>
 
@@ -34,56 +35,33 @@ namespace neuralSubdiv {
 	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, pmp::Vertex& vj, Eigen::MatrixXi& F,
 				          Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv, Eigen::MatrixXi& F_onering,
 						  Eigen::Vector2i& boundary_idx, Eigen::MatrixXd& boundary_constraints,
-						  Eigen::MatrixXi& V_map, Eigen::ArrayXi& F_map)
+						  Eigen::MatrixXi& V_map, Eigen::MatrixXi& F_map)
 	{
 		Eigen::Map< Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor > > V(meshIn.positions()[0].data(), meshIn.positions().size(), 3);
-		std::cout << V.rows() << std::endl;
-		std::cout << F.rows() << std::endl;
+		Eigen::MatrixXd V_uv(meshIn.valence(vi) + meshIn.valence(vj) - 2, 3);
+		neuralSubdiv::get_onering_vertices(meshIn, vi, vj, V_map, V_uv, boundary_idx);
+		neuralSubdiv::get_onering_faces(meshIn, vi, vj, V_map, F_map, F_uv);
 
-		// find one ring faces (without duplicates, easier with the pmp halfedge structure)
-		std::vector<int> one_ring_faces(meshIn.valence(vi) + meshIn.valence(vj));
-		auto it = one_ring_faces.begin();
-		for (auto face : meshIn.faces(vi))
-		{
-			if (face.is_valid() && std::find(one_ring_faces.begin(), it, face.idx()) == it)
-			{
-				(*it) = face.idx();
-				it++;
-			}
-		}
-		for (auto face : meshIn.faces(vj))
-		{
-			if (face.is_valid() && std::find(one_ring_faces.begin(), it, face.idx()) == it)
-			{
-				(*it) = face.idx();
-				it++;
-			}
-		}
-		one_ring_faces.resize(std::distance(one_ring_faces.begin(), it));
-		
-		// get faces that are in the one-ring
-		F_map = Eigen::Map<Eigen::ArrayXi>(one_ring_faces.data(), one_ring_faces.size());
-		igl::slice(F, F_map, 1, F_onering);
+#ifdef DEBUG_PRINT
+		std::cout << "|V| : " << V.rows() << std::endl;
+		std::cout << "|F| : " << F.rows() << std::endl;
+		std::cout << "n_vertices : " << meshIn.n_vertices() << std::endl;
 
-		// get vertices that are in the one-ring
-		Eigen::MatrixXi I;
-		Eigen::MatrixXd V_uv;
-		igl::remove_unreferenced(V, F_onering, V_uv, F_uv, I, V_map);
+		std::cout << "F map" << std::endl;
+		std::cout << F_map << std::endl;
 
-		// find vi and vj indices FUV
-		int vi_uv = -1, vj_uv = -1;
-		for (int i = 0; i < V_map.rows(); i++)
-		{
-			if (V_map(i) == static_cast<int>(vi.idx()))
-				vi_uv = i;
-			if (V_map(i) == static_cast<int>(vj.idx()))
-				vj_uv = i;
-			if (vi_uv != -1 && vj_uv != -1) break;
-		}
+		std::cout << "F uv" << std::endl;
+		std::cout << F_uv << std::endl;
 
-		// boundary vertex idx in the uv reference
-		boundary_idx.resize(2);
-		boundary_idx << vi_uv, vj_uv;
+		std::cout << "V map" << std::endl;
+		std::cout << V_map << std::endl;
+
+		std::cout << "V_uv" << std::endl;
+		std::cout << V_uv << std::endl;
+
+		std::cout << "boundary idx" << std::endl;
+		std::cout << boundary_idx << std::endl;
+#endif
 
 		double ij_norm = static_cast<double>(pmp::norm((meshIn.position(vi) - meshIn.position(vj))));
 
@@ -94,6 +72,43 @@ namespace neuralSubdiv {
 
 		// minimize conformal energy
 		igl::lscm(V_uv, F_uv, boundary_idx, boundary_constraints, uv);
+	}
+
+	void flatten_one_ring_after(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, Eigen::MatrixXd& uv, Eigen::MatrixXi& V_map)
+	{
+		Eigen::MatrixXd v(meshIn.valence(vi) + 1, 3);
+		Eigen::MatrixXi v_idx(meshIn.valence(vi) + 1, 1);
+		Eigen::MatrixXd boundary_constraints_after(meshIn.valence(vi), 2);
+		Eigen::MatrixXi boundary_constraints_idx_after(meshIn.valence(vi), 1);
+
+		int idx = 0;
+		for (auto vertex : meshIn.vertices(vi))
+		{
+			v.row(idx) = static_cast<Eigen::Vector3d>(meshIn.position(vertex));
+			v_idx(idx) = vertex.idx();
+			++idx;
+		}
+		v.row(idx) = static_cast<Eigen::Vector3d>(meshIn.position(vi));
+		v_idx(idx) = vi.idx();
+
+		idx = 0;
+		for (int i = 0; i < boundary_constraints_idx_after.rows(); ++i)
+			boundary_constraints_idx_after(i) = i;
+
+		std::map<int, int> uv_map;
+		for (int i = 0; i < V_map.rows(); ++i)
+			uv_map[V_map(i)] = i;
+
+		for (int i = 0; i < boundary_constraints_after.rows(); ++i)
+			boundary_constraints_after.row(i) = uv.row(uv_map[v_idx(boundary_constraints_idx_after(i))]);
+
+#ifdef DEBUG_PRINT
+		std::cout << "boundary idx after" << std::endl;
+		std::cout << boundary_constraints_idx_after << std::endl;
+
+		std::cout << "boundary after" << std::endl;
+		std::cout << boundary_constraints_after << std::endl;
+#endif
 	}
 
 	bool check_lscm_self_folding(Eigen::MatrixXd& uv, Eigen::MatrixXi& f_uv, Eigen::Vector2i& boundary_idx)
