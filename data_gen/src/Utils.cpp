@@ -42,7 +42,7 @@ namespace neuralSubdiv {
 		neuralSubdiv::get_onering_vertices(meshIn, vi, vj, V_map, V_uv, boundary_idx);
 		neuralSubdiv::get_onering_faces(meshIn, vi, vj, V_map, F_map, F_uv);
 
-#ifdef DEBUG_PRINT
+#ifdef DEBUG_PRINT_MORE
 		std::cout << "|V| : " << V.rows() << std::endl;
 		std::cout << "|F| : " << F.rows() << std::endl;
 		std::cout << "n_vertices : " << meshIn.n_vertices() << std::endl;
@@ -74,41 +74,72 @@ namespace neuralSubdiv {
 		igl::lscm(V_uv, F_uv, boundary_idx, boundary_constraints, uv);
 	}
 
-	void flatten_one_ring_after(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, Eigen::MatrixXd& uv, Eigen::MatrixXi& V_map)
+	void flatten_one_ring_after(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, Eigen::MatrixXd& uv, Eigen::MatrixXi& V_map, 
+		Eigen::MatrixXd& uv_after, Eigen::MatrixXi& f_uv)
 	{
 		Eigen::MatrixXd v(meshIn.valence(vi) + 1, 3);
 		Eigen::MatrixXi v_idx(meshIn.valence(vi) + 1, 1);
 		Eigen::MatrixXd boundary_constraints_after(meshIn.valence(vi), 2);
 		Eigen::MatrixXi boundary_constraints_idx_after(meshIn.valence(vi), 1);
 
+		std::map<int, int> uv_map, v_map_rev;
+		for (int i = 0; i < V_map.rows(); ++i)
+			uv_map[V_map(i)] = i;
+
 		int idx = 0;
 		for (auto vertex : meshIn.vertices(vi))
 		{
 			v.row(idx) = static_cast<Eigen::Vector3d>(meshIn.position(vertex));
 			v_idx(idx) = vertex.idx();
+			v_map_rev[vertex.idx()] = idx;
 			++idx;
 		}
 		v.row(idx) = static_cast<Eigen::Vector3d>(meshIn.position(vi));
 		v_idx(idx) = vi.idx();
+		v_map_rev[vi.idx()] = idx;
 
+		int n_faces = 0;
+		for (auto face : meshIn.faces(vi))
+			++n_faces;
+
+		f_uv = Eigen::MatrixXi(n_faces, 3);
+		int i = 0, j = 0;
+		for (auto face : meshIn.faces(vi))
+		{
+			j = 0;
+			for (auto vertex : meshIn.vertices(face))
+			{
+				f_uv(i, j) = v_map_rev[vertex.idx()];
+				++j;
+			}
+			++i;
+		}
+		
 		idx = 0;
 		for (int i = 0; i < boundary_constraints_idx_after.rows(); ++i)
 			boundary_constraints_idx_after(i) = i;
 
-		std::map<int, int> uv_map;
-		for (int i = 0; i < V_map.rows(); ++i)
-			uv_map[V_map(i)] = i;
-
 		for (int i = 0; i < boundary_constraints_after.rows(); ++i)
 			boundary_constraints_after.row(i) = uv.row(uv_map[v_idx(boundary_constraints_idx_after(i))]);
 
-#ifdef DEBUG_PRINT
+#ifdef DEBUG_PRINT_MORE
+		std::cout << "v idx" << std::endl;
+		std::cout << v_idx << std::endl;
+		
+		std::cout << "f uv" << std::endl;
+		std::cout << f_uv << std::endl;
+
 		std::cout << "boundary idx after" << std::endl;
 		std::cout << boundary_constraints_idx_after << std::endl;
 
 		std::cout << "boundary after" << std::endl;
 		std::cout << boundary_constraints_after << std::endl;
 #endif
+
+		igl::lscm(v, f_uv, boundary_constraints_idx_after, boundary_constraints_after, uv_after);
+		//// temp fix, WHY is it swapped ??
+		for (int i = 0; i < uv_after.rows(); ++i)
+			std::swap(uv_after(i, 0), uv_after(i, 1));
 	}
 
 	bool check_lscm_self_folding(Eigen::MatrixXd& uv, Eigen::MatrixXi& f_uv, Eigen::Vector2i& boundary_idx)

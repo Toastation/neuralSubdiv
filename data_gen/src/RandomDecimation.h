@@ -33,6 +33,18 @@ public:
     void simplify(unsigned int n_vertices);
 
 private:
+    struct DecInfo
+    {
+        int n_collapse;
+        pmp::Vertex vi;                 // remaining vertex after the collapse
+        Eigen::Vector2i boundary_idx;   // vertex idx of 1-ring
+        Eigen::MatrixXd uv;             // flattened vertex position 
+        Eigen::MatrixXd uv_after;       // flattened vertex position (before collapse)
+        Eigen::MatrixXi F_uv;           // faces in the uv matrix
+        Eigen::MatrixXi F_uv_after;     // faces in the uv_previous matrix
+        Eigen::MatrixXi V_map;          // mapping from uv matrix to the mesh vertex matrix
+    };
+
     // Store data for an halfedge collapse
     struct CollapseData
     {
@@ -61,17 +73,6 @@ private:
         Vertex vr;     // Right vertex
         Halfedge v1vl, vlv0, v0vr, vrv1;
     };
-
-    //struct DecInfo
-    //{
-    //    pmp::Vertex vi;                 // remaining vertex after the collapse
-    //    Eigen::Vector2i boundary_idx;   // vertex idx of 1-ring
-    //    Eigen::MatrixXd uv;             // flattened vertex position 
-    //    Eigen::MatrixXd uv_previous;    // flattened vertex position (before collapse)
-    //    Eigen::MatrixXi F_uv;           // faces in the uv matrix
-    //    Eigen::MatrixXi F_uv_previous;  // faces in the uv_previous matrix
-    //    Eigen::MatrixXi V_map;          // mapping from uv matrix to the mesh vertex matrix
-    //};
 
     // Heap interface
     class HeapInterface

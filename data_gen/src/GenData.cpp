@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
 
 	neuralSubdiv::normalize_unit_box(mesh);
 
+	mesh.write("aaa.obj");
 	//neuralSubdiv::RandomDecimation rd(mesh);
 	//rd.initialize();
 

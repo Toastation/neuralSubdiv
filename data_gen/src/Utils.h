@@ -1,6 +1,7 @@
 #pragma once
 
-#define DEBUG_PRINT
+//#define DEBUG_PRINT
+//#define DEBUG_PRINT_MORE
 
 #include <pmp/SurfaceMesh.h>
 
@@ -18,7 +19,8 @@ namespace neuralSubdiv {
 						Eigen::Vector2i& boundary_idx, Eigen::MatrixXd& boundary_constraints,
 						Eigen::MatrixXi& V_map, Eigen::MatrixXi& F_map);
 
-	void flatten_one_ring_after(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, Eigen::MatrixXd& uv, Eigen::MatrixXi& V_map);
+	void flatten_one_ring_after(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, Eigen::MatrixXd& uv, Eigen::MatrixXi& V_map,
+		Eigen::MatrixXd& uv2, Eigen::MatrixXi& f_uv);
 
 	// appendix C. paragraph 3
 	// check that the total angle around vi and vj is 2*pi 

@@ -157,6 +157,13 @@ namespace neuralSubdiv {
         std::vector<Vertex>::iterator or_it, or_end;
         Halfedge h;
         Vertex v;
+        int it = 0;
+
+        int dec_info_size = mesh_.n_vertices() - n_vertices;
+        std::vector<DecInfo> dec_infos(dec_info_size);
+#ifdef DEBUG_PRINT
+        std::cout << "estimation: " << dec_info_size << std::endl;
+#endif
 
         // add properties for priority queue
         vpriority_ = mesh_.add_vertex_property<float>("v:prio");
@@ -213,10 +220,16 @@ namespace neuralSubdiv {
             std::cout << nv << std::endl;
 #endif
 
-            pmp::Vertex vi = cd.v1; pmp::Vertex vj = cd.v0;
-            Eigen::Vector2i boundary_idx;
-            Eigen::MatrixXi F_uv, F_onering, V_map, F_map;
-            Eigen::MatrixXd uv, boundary_constraints;
+            // naming convention: "after" = post edge collapse
+            // meaning "onering" now means the one ring of vertex vi 
+            // instead of the one ring of the edge vi,vj
+            pmp::Vertex vi = cd.v1; pmp::Vertex vj = cd.v0;     // vi=remaining vertex
+            Eigen::Vector2i boundary_idx;                       // idx of vi, vj in uv
+            Eigen::MatrixXi F_uv, F_uv_after;                   // face list (idx in uv)
+            Eigen::MatrixXi F_onering, V_map, F_map;            // mapping idx uv -> idx in V
+            Eigen::MatrixXd uv, uv_after;                       // one ring vertices position in 2D
+            Eigen::MatrixXd boundary_constraints;               // 2D position of the constraints
+
             neuralSubdiv::flatten_one_ring(mesh_, vi, vj, F,
                 uv, F_uv, F_onering,
                 boundary_idx, boundary_constraints,
@@ -227,7 +240,6 @@ namespace neuralSubdiv {
             std::cout << uv << std::endl;
 #endif 
 
-
             neuralSubdiv::check_lscm_self_folding(uv, F_uv, boundary_idx);
             neuralSubdiv::check_link_condition(mesh_, mesh_.edge(cd.v0v1));
 
@@ -236,13 +248,27 @@ namespace neuralSubdiv {
             //for (int i = 0; i < F_onering.rows(); ++i)
             //    face_normals[i] = pmp::SurfaceNormals::compute_face_normal(mesh_, pmp::Face(F_onering(i)));
 
-            // perform collapse
             mesh_.collapse(h);
             --nv;
-            // postprocessing, e.g., update quadrics
-            postprocess_collapse(cd);
+            postprocess_collapse(cd); // postprocessing, e.g., update quadrics
 
-            flatten_one_ring_after(mesh_, cd.v1, uv, V_map);
+            flatten_one_ring_after(mesh_, vi, uv, V_map, uv_after, F_uv_after);
+
+#ifdef DEBUG_PRINT
+            std::cout << "uv after" << std::endl;
+            std::cout << uv_after << std::endl;
+#endif
+
+            DecInfo info;
+            info.n_collapse = it;
+            info.vi = cd.v1;
+            info.boundary_idx = boundary_idx;
+            info.uv = uv;
+            info.uv_after = uv_after;
+            info.F_uv = F_uv;
+            info.F_uv = F_uv_after;
+            info.V_map = V_map;
+            dec_infos[it] = info;
 
             // clean previous edge selection and recompute selection
             if (use_subset_)
@@ -265,6 +291,8 @@ namespace neuralSubdiv {
             for (or_it = one_ring.begin(), or_end = one_ring.end(); or_it != or_end;
                 ++or_it)
                 enqueue_vertex(*or_it);
+
+            ++it; // n_collapse 
         }
 
         // clean up
@@ -273,6 +301,10 @@ namespace neuralSubdiv {
         mesh_.remove_vertex_property(vpriority_);
         mesh_.remove_vertex_property(heap_pos_);
         mesh_.remove_vertex_property(vtarget_);
+
+#ifdef DEBUG_PRINT
+        std::cout << "dec info size : " << dec_infos.size() << std::endl;
+#endif
     }
 
     void RandomDecimation::enqueue_vertex(Vertex v)
