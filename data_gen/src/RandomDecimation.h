@@ -9,15 +9,30 @@
 #include "pmp/algorithms/NormalCone.h"
 #include "pmp/algorithms/Quadric.h"
 
+
 using namespace pmp;
 
 namespace neuralSubdiv {
+
+
 
 // Based on pmp::SurfaceSimplification
 // Adds random decimation and succesive self-parametrization
 // TODO: check if mesh is closed, check edge intersection after decimation?
 class RandomDecimation {
 public:
+    struct DecInfo
+    {
+        int n_collapse;
+        pmp::Vertex vi;                 // remaining vertex after the collapse
+        Eigen::Vector2i boundary_idx;   // vertex idx of 1-ring
+        Eigen::MatrixXd uv;             // flattened vertex position 
+        Eigen::MatrixXd uv_after;       // flattened vertex position (before collapse)
+        Eigen::MatrixXi F_uv;           // faces in the uv matrix
+        Eigen::MatrixXi F_uv_after;     // faces in the uv_previous matrix
+        Eigen::MatrixXi V_map;          // mapping from uv matrix to the mesh vertex matrix
+    };
+
     //! Construct with mesh to be simplified.
     RandomDecimation(SurfaceMesh& mesh);
 
@@ -32,18 +47,12 @@ public:
     //! Simplify mesh to \p n_vertices.
     void simplify(unsigned int n_vertices);
 
-private:
-    struct DecInfo
+    const std::vector<neuralSubdiv::RandomDecimation::DecInfo>& get_dec_infos()
     {
-        int n_collapse;
-        pmp::Vertex vi;                 // remaining vertex after the collapse
-        Eigen::Vector2i boundary_idx;   // vertex idx of 1-ring
-        Eigen::MatrixXd uv;             // flattened vertex position 
-        Eigen::MatrixXd uv_after;       // flattened vertex position (before collapse)
-        Eigen::MatrixXi F_uv;           // faces in the uv matrix
-        Eigen::MatrixXi F_uv_after;     // faces in the uv_previous matrix
-        Eigen::MatrixXi V_map;          // mapping from uv matrix to the mesh vertex matrix
-    };
+        return dec_infos_;
+    }
+
+private:
 
     // Store data for an halfedge collapse
     struct CollapseData
@@ -116,7 +125,7 @@ private:
     Scalar distance(Face f, const Point& p) const;
 
     // get a random subset of the mesh of size n
-    void get_random_edge_subset(int n, std::vector<Edge>& edges_subset);
+    void get_random_edge_subset(int n, std::vector<int>& edges_subset);
 
     SurfaceMesh& mesh_;
 
@@ -149,6 +158,8 @@ private:
     unsigned int edge_subset_size_;
 
     std::default_random_engine eng_;
+    std::vector<neuralSubdiv::RandomDecimation::DecInfo> dec_infos_;
+    std::vector<int> edges_copy;
 };
 
 } // namespace neuralSubdiv

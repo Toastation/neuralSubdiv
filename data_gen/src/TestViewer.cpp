@@ -40,7 +40,7 @@ void TestViewer::process_imgui()
         {
             neuralSubdiv::RandomDecimation rd(mesh_);
             rd.initialize();
-            rd.simplify(mesh_.n_vertices() * 0.01 * target_percentage);
+            rd.simplify(100);
             update_mesh();
             std::cout << "nb vertices after decimation: " << mesh_.n_vertices() << std::endl;
             //Eigen::MatrixXi F(mesh_.n_faces(), 3);

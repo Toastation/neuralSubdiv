@@ -10,6 +10,7 @@
 #include "pmp/algorithms/SurfaceNormals.h"
 
 using namespace pmp;
+using namespace std::chrono;
 
 namespace neuralSubdiv {
 
@@ -141,6 +142,12 @@ namespace neuralSubdiv {
 
     void RandomDecimation::simplify(unsigned int n_vertices)
     {
+        if (n_vertices >= mesh_.n_vertices())
+        {
+            std::cerr << "Simplification error: target number of vertices must be inferior to the current number of vertices." << std::endl;
+            return;
+        }
+
         if (!mesh_.is_triangle_mesh())
         {
             std::cerr << "Not a triangle mesh!" << std::endl;
@@ -160,7 +167,7 @@ namespace neuralSubdiv {
         int it = 0;
 
         int dec_info_size = mesh_.n_vertices() - n_vertices;
-        std::vector<DecInfo> dec_infos(dec_info_size);
+        dec_infos_.resize(dec_info_size);
 #ifdef DEBUG_PRINT
         std::cout << "estimation: " << dec_info_size << std::endl;
 #endif
@@ -171,7 +178,7 @@ namespace neuralSubdiv {
         vtarget_ = mesh_.add_vertex_property<Halfedge>("v:target");
 
         // select random edge subset
-        std::vector<Edge> edge_subset;
+
         if (use_subset_)
         {
             if (mesh_.n_edges() < edge_subset_size_)
@@ -180,41 +187,76 @@ namespace neuralSubdiv {
             }
             else 
             {
-                get_random_edge_subset(edge_subset_size_, edge_subset);
-                for (auto it = edge_subset.begin(); it != edge_subset.end(); ++it)
-                    eselected_[*it] = true;
+                int idx = 0;
+                edges_copy.resize(mesh_.n_edges());
+                for (auto eit : mesh_.edges())
+                {
+                    edges_copy[idx] = eit.idx();
+                    ++idx;
+                }
+                std::random_shuffle(edges_copy.begin(), edges_copy.end());
+                //for (int i = 0; i < 100; ++i)
+                //    eselected_[pmp::Edge(edges_copy[i])] = true;
             }
         }
-         
-        // build priority queue
-        HeapInterface hi(vpriority_, heap_pos_);
-        queue_ = new PriorityQueue(hi);
-        queue_->reserve(mesh_.n_vertices());
-        for (auto v : mesh_.vertices())
-        {
-            queue_->reset_heap_position(v);
-            enqueue_vertex(v);
-        }
 
-        while (nv > n_vertices && !queue_->empty())
+
+        // build priority queue
+        /*HeapInterface hi(vpriority_, heap_pos_);
+        queue_ = new PriorityQueue(hi);
+        queue_->reserve(100);
+        for (int i = 0; i < 100; ++i)
         {
+            queue_->reset_heap_position(mesh_.vertex(pmp::Edge(edges_copy[i]), 0));
+            enqueue_vertex(mesh_.vertex(pmp::Edge(edges_copy[i]), 0));
+            queue_->reset_heap_position(mesh_.vertex(pmp::Edge(edges_copy[i]), 1));
+            enqueue_vertex(mesh_.vertex(pmp::Edge(edges_copy[i]), 1));
+        }*/
+        Halfedge he1, he2;
+        float min_prio = std::numeric_limits<float>::max();
+        Halfedge min_h;
+        while (nv > n_vertices)
+        {
+
+            //auto start_loop = high_resolution_clock::now();
+            if (it%50==0)std::cout << "it=" << it << std::endl;
             // get 1st element
-            v = queue_->front();
-            queue_->pop_front();
-            h = vtarget_[v];
-            CollapseData cd(mesh_, h);
+            /*v = queue_->front();
+            queue_->pop_front();*/
+            //auto start_prio= high_resolution_clock::now();
+
+            min_prio = std::numeric_limits<float>::max();
+            min_h = pmp::Halfedge(-1);
+            for (int i = 0; i < 100; ++i)
+            {
+                he1 = mesh_.halfedge(pmp::Edge(edges_copy[i]), 0);
+                he2 = mesh_.halfedge(pmp::Edge(edges_copy[i]), 1);
+                CollapseData cd1(mesh_, he1);
+                CollapseData cd2(mesh_, he2);
+                if (is_collapse_legal(cd1) && priority(cd1) < min_prio)
+                {
+                    min_prio = priority(cd1);
+                    min_h = he1;
+                }
+                if (is_collapse_legal(cd2) && priority(cd2) < min_prio)
+                {
+                    min_prio = priority(cd2);
+                    min_h = he2;
+                }
+            }
+            //auto stop_prio = high_resolution_clock::now();
+
+            CollapseData cd(mesh_, min_h);
+            /*h = vtarget_[v];
+            (mesh_, h);*/
 
             // check this (again)
-            if (!mesh_.is_collapse_ok(h))
+            if (!mesh_.is_collapse_ok(min_h))
                 continue;
-
             // store one-ring
             one_ring.clear();
             for (auto vv : mesh_.vertices(cd.v0))
                 one_ring.push_back(vv);
-
-            Eigen::MatrixXi F(mesh_.n_faces(), 3);
-            neuralSubdiv::faces_to_matrix(mesh_, F);
 
 #ifdef DEBUG_PRINT
             std::cout << nv << std::endl;
@@ -223,6 +265,8 @@ namespace neuralSubdiv {
             // naming convention: "after" = post edge collapse
             // meaning "onering" now means the one ring of vertex vi 
             // instead of the one ring of the edge vi,vj
+            //auto start_param = high_resolution_clock::now();
+
             pmp::Vertex vi = cd.v1; pmp::Vertex vj = cd.v0;     // vi=remaining vertex
             Eigen::Vector2i boundary_idx;                       // idx of vi, vj in uv
             Eigen::MatrixXi F_uv, F_uv_after;                   // face list (idx in uv)
@@ -230,7 +274,7 @@ namespace neuralSubdiv {
             Eigen::MatrixXd uv, uv_after;                       // one ring vertices position in 2D
             Eigen::MatrixXd boundary_constraints;               // 2D position of the constraints
 
-            neuralSubdiv::flatten_one_ring(mesh_, vi, vj, F,
+            neuralSubdiv::flatten_one_ring(mesh_, vi, vj,
                 uv, F_uv, F_onering,
                 boundary_idx, boundary_constraints,
                 V_map, F_map);
@@ -248,11 +292,12 @@ namespace neuralSubdiv {
             //for (int i = 0; i < F_onering.rows(); ++i)
             //    face_normals[i] = pmp::SurfaceNormals::compute_face_normal(mesh_, pmp::Face(F_onering(i)));
 
-            mesh_.collapse(h);
+            mesh_.collapse(min_h);
             --nv;
             postprocess_collapse(cd); // postprocessing, e.g., update quadrics
 
             flatten_one_ring_after(mesh_, vi, uv, V_map, uv_after, F_uv_after);
+            //auto stop_param = high_resolution_clock::now();
 
 #ifdef DEBUG_PRINT
             std::cout << "uv after" << std::endl;
@@ -268,35 +313,68 @@ namespace neuralSubdiv {
             info.F_uv = F_uv;
             info.F_uv = F_uv_after;
             info.V_map = V_map;
-            dec_infos[it] = info;
+            dec_infos_[it] = info;
 
             // clean previous edge selection and recompute selection
+            //auto start_r = high_resolution_clock::now();
+
             if (use_subset_)
             {
-                for (auto it = edge_subset.begin(); it != edge_subset.end(); ++it)
-                    eselected_[*it] = false;
+                //for (int i = 0; i < 100; ++i)
+                //    eselected_[pmp::Edge(edges_copy[i])] = false;
                 if (mesh_.n_edges() < edge_subset_size_)
                 {
                     use_subset_ = false;
                 }
                 else
                 {
-                    get_random_edge_subset(edge_subset_size_, edge_subset);
-                    for (auto it = edge_subset.begin(); it != edge_subset.end(); ++it)
-                        eselected_[*it] = true;
+                    int idx = 0;
+                    for (auto eit : mesh_.edges())
+                    {
+                        edges_copy[idx] = eit.idx();
+                        ++idx;
+                    }
+                    std::random_shuffle(edges_copy.begin(), edges_copy.end());
+                    //for (int i = 0; i < 100; ++i)
+                    //    eselected_[pmp::Edge(edges_copy[i])] = true;
+                    //queue_->clear();
+                    //queue_->reserve(100);
+                    //for (int i = 0; i < 100; ++i)
+                    //{
+                    //    queue_->reset_heap_position(mesh_.vertex(pmp::Edge(edges_copy[i]), 0));
+                    //    enqueue_vertex(mesh_.vertex(pmp::Edge(edges_copy[i]), 0));
+                    //    queue_->reset_heap_position(mesh_.vertex(pmp::Edge(edges_copy[i]), 1));
+                    //    enqueue_vertex(mesh_.vertex(pmp::Edge(edges_copy[i]), 1));
+                    //}
+                    //std::cout << "queue_ size:" << queue_->size() << std::endl;
                 }
             }
+            //auto stop_r = high_resolution_clock::now();
 
             // update queue
-            for (or_it = one_ring.begin(), or_end = one_ring.end(); or_it != or_end;
-                ++or_it)
-                enqueue_vertex(*or_it);
+            //for (or_it = one_ring.begin(), or_end = one_ring.end(); or_it != or_end;
+            //    ++or_it)
+            //{
+            //    eselected_[mesh_.edge(mesh_.halfedge(*or_it))] = true;
+            //    enqueue_vertex(*or_it);
+            //}
 
             ++it; // n_collapse 
+            //auto stop_loop = high_resolution_clock::now();
+            //auto duration_loop = duration_cast<microseconds>(stop_loop - start_loop);
+            //auto duration_r = duration_cast<microseconds>(stop_r - start_r);
+            //auto duration_prio = duration_cast<microseconds>(stop_prio - start_prio);
+            //auto duration_param = duration_cast<microseconds>(stop_param - start_param);
+            //auto duration_f= duration_cast<microseconds>(stop_f- start_f);
+            //std::cout << "Loop: " << duration_loop.count() << std::endl;
+            //std::cout << "rand: " << duration_r.count() << std::endl;
+            //std::cout << "prio: " << duration_prio.count() << std::endl;
+            //std::cout << "param: " << duration_param.count() << std::endl;
+            //std::cout << "face: " << duration_f.count() << std::endl;
         }
 
         // clean up
-        delete queue_;
+        //delete queue_;
         mesh_.garbage_collection();
         mesh_.remove_vertex_property(vpriority_);
         mesh_.remove_vertex_property(heap_pos_);
@@ -358,10 +436,6 @@ namespace neuralSubdiv {
             if (!vselected_[cd.v0])
                 return false;
         }
-
-        // test edge subset selection
-        if (use_subset_ && !eselected_[mesh_.edge(cd.v0v1)])
-            return false;
 
         // test features
         if (has_features_)
@@ -678,18 +752,16 @@ namespace neuralSubdiv {
         return dist_point_triangle(p, p0, p1, p2, n);
     }
 
-    void RandomDecimation::get_random_edge_subset(int n, std::vector<Edge>& edges_subset) 
+    void RandomDecimation::get_random_edge_subset(int n, std::vector<int>& edges_subset) 
     {
         edges_subset.resize(mesh_.n_edges());
-        // std::copy doesn't work with mesh_.edges()?......
         int idx = 0;
         for (auto eit : mesh_.edges())
         {
-            edges_subset[idx] = eit;
+            edges_subset[idx] = eit.idx();
             idx++;
         }
-        std::shuffle(edges_subset.begin(), edges_subset.end(), eng_);
-        edges_subset.resize(n);
+        std::random_shuffle(edges_copy.begin(), edges_copy.end());
     }
 
     RandomDecimation::CollapseData::CollapseData(SurfaceMesh& sm, Halfedge h)

@@ -14,7 +14,7 @@ namespace neuralSubdiv {
 	void normalize_unit_box(pmp::SurfaceMesh& meshIn);
 
 	// Flatten the one ring of the edge V[edge[0]],V[edge[1]]
-	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, pmp::Vertex& vj, Eigen::MatrixXi& F,
+	void flatten_one_ring(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, pmp::Vertex& vj,
 						Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv, Eigen::MatrixXi& F_onering,
 						Eigen::Vector2i& boundary_idx, Eigen::MatrixXd& boundary_constraints,
 						Eigen::MatrixXi& V_map, Eigen::MatrixXi& F_map);
