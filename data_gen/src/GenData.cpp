@@ -40,7 +40,10 @@ int main(int argc, char** argv) {
 
 	neuralSubdiv::normalize_unit_box(mesh);
 
-	for (int i = 0; i < nb_generated_data; ++i)
+
+
+	pmp::SurfaceMesh mapped;
+	for (int i = 0; i < 1; ++i)
 	{
 		r = std::rand() / (double)RAND_MAX;
 		nb_target_vertex = tv_average + round(tv_variance * (r - 0.5));
@@ -48,15 +51,37 @@ int main(int argc, char** argv) {
 
 		pmp::SurfaceMesh mesh_copy = pmp::SurfaceMesh(mesh);
 		neuralSubdiv::RandomDecimation rd(mesh_copy);
+
+		for (auto vit : mesh_copy.vertices())
+			assert(mesh_copy.is_manifold(vit));
 		
 		rd.initialize();
-		rd.simplify(nb_target_vertex);
+		rd.simplify(400);
+
+		/*for (int i = rd.get_dec_infos().size() - 1; i >= 0; i--)
+		{
+			auto info = rd.get_dec_infos()[i];
+			std::cout << "vi: " << info.vi << std::endl;
+		}*/
+		for (auto vit : mesh_copy.vertices())
+			assert(mesh_copy.is_manifold(vit));
+
+		neuralSubdiv::ssp(mesh_copy, mesh, mapped, rd.get_dec_infos());
+		mesh_copy.garbage_collection();
+		mapped.garbage_collection();
 		
+		std::cout << "vertices after: " << mesh_copy.n_vertices() << std::endl;
+		std::string filename_mapped("mapped");
+		filename_mapped += std::to_string(i);
+		filename_mapped += ".obj";
+		mapped.write(filename_mapped);
+
 		std::string filename("copy");
 		filename += std::to_string(i);
 		filename += ".obj";
 		mesh_copy.write(filename);
 		std::cout << "Data " << i << "generated as " << filename << std::endl;
+
 	}
 
 

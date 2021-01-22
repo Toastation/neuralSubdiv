@@ -1,5 +1,6 @@
 #include "RandomDecimation.h"
 #include "Utils.h"
+#include "Test.h"
 
 #include <iterator>
 #include <limits>
@@ -27,6 +28,7 @@ namespace neuralSubdiv {
         // add properties
         vquadric_ = mesh_.add_vertex_property<Quadric>("v:quadric");
         eselected_ = mesh_.add_edge_property<bool>("e:selected");
+        eskip_ = mesh_.add_halfedge_property<bool>("he:skip");
 
         // get properties
         vpoint_ = mesh_.vertex_property<Point>("v:point");
@@ -43,6 +45,7 @@ namespace neuralSubdiv {
         mesh_.remove_face_property(normal_cone_);
         mesh_.remove_face_property(face_points_);
         mesh_.remove_edge_property(eselected_);
+        mesh_.remove_halfedge_property(eskip_);
     }
 
     void RandomDecimation::initialize(Scalar aspect_ratio, Scalar edge_length,
@@ -178,7 +181,6 @@ namespace neuralSubdiv {
         vtarget_ = mesh_.add_vertex_property<Halfedge>("v:target");
 
         // select random edge subset
-
         if (use_subset_)
         {
             if (mesh_.n_edges() < edge_subset_size_)
@@ -194,36 +196,25 @@ namespace neuralSubdiv {
                     edges_copy[idx] = eit.idx();
                     ++idx;
                 }
-                std::random_shuffle(edges_copy.begin(), edges_copy.end());
-                //for (int i = 0; i < 100; ++i)
-                //    eselected_[pmp::Edge(edges_copy[i])] = true;
+                std::shuffle(edges_copy.begin(), edges_copy.end(), eng_);
             }
         }
 
-
         // build priority queue
-        /*HeapInterface hi(vpriority_, heap_pos_);
-        queue_ = new PriorityQueue(hi);
-        queue_->reserve(100);
-        for (int i = 0; i < 100; ++i)
-        {
-            queue_->reset_heap_position(mesh_.vertex(pmp::Edge(edges_copy[i]), 0));
-            enqueue_vertex(mesh_.vertex(pmp::Edge(edges_copy[i]), 0));
-            queue_->reset_heap_position(mesh_.vertex(pmp::Edge(edges_copy[i]), 1));
-            enqueue_vertex(mesh_.vertex(pmp::Edge(edges_copy[i]), 1));
-        }*/
         Halfedge he1, he2;
         float min_prio = std::numeric_limits<float>::max();
         Halfedge min_h;
+        pmp::SurfaceMesh save;
+        int stall_count = 0;
         while (nv > n_vertices)
         {
-
-            //auto start_loop = high_resolution_clock::now();
             if (it%50==0)std::cout << "it=" << it << std::endl;
+            auto start_loop = high_resolution_clock::now();
+            stall_count++;
             // get 1st element
             /*v = queue_->front();
             queue_->pop_front();*/
-            //auto start_prio= high_resolution_clock::now();
+            auto start_prio= high_resolution_clock::now();
 
             min_prio = std::numeric_limits<float>::max();
             min_h = pmp::Halfedge(-1);
@@ -244,7 +235,12 @@ namespace neuralSubdiv {
                     min_h = he2;
                 }
             }
-            //auto stop_prio = high_resolution_clock::now();
+            if (min_h.idx() == -1)
+            {
+                std::cout << "WARNING: premature stop in decimation (no more decent collapse available)" << std::endl;
+                break;
+            }
+            auto stop_prio = high_resolution_clock::now();
 
             CollapseData cd(mesh_, min_h);
             /*h = vtarget_[v];
@@ -267,6 +263,9 @@ namespace neuralSubdiv {
             // instead of the one ring of the edge vi,vj
             //auto start_param = high_resolution_clock::now();
 
+            Eigen::MatrixXi F(mesh_.n_faces(), 3);
+            neuralSubdiv::faces_to_matrix(mesh_, F);
+
             pmp::Vertex vi = cd.v1; pmp::Vertex vj = cd.v0;     // vi=remaining vertex
             Eigen::Vector2i boundary_idx;                       // idx of vi, vj in uv
             Eigen::MatrixXi F_uv, F_uv_after;                   // face list (idx in uv)
@@ -278,32 +277,105 @@ namespace neuralSubdiv {
                 uv, F_uv, F_onering,
                 boundary_idx, boundary_constraints,
                 V_map, F_map);
+
+            //assert(neuralSubdiv::check_F_uv(mesh_, F_map, F_uv, V_map));
+
+            //std::cout << "F" << std::endl;
+            //std::cout << F << std::endl;
+
+            //for (int j = 0; j < F_uv.rows(); ++j)
+            //{
+            //    std::cout << pmp::Vertex(F_uv(j, 0)) << std::endl;
+            //    std::cout << pmp::Vertex(F_uv(j, 1)) << std::endl;
+            //    std::cout << pmp::Vertex(F_uv(j, 2)) << std::endl;
+            //    std::cout << mesh_.find_halfedge(pmp::Vertex(F_uv(j, 2)), pmp::Vertex(F_uv(j, 0))) << std::endl;
+            //    std::cout << mesh_.find_halfedge(pmp::Vertex(F_uv(j, 1)), pmp::Vertex(F_uv(j, 0))) << std::endl;
+            //    std::cout << mesh_.find_halfedge(pmp::Vertex(F_uv(j, 2)), pmp::Vertex(F_uv(j, 1))) << std::endl;
+            //    /*std::cout << (mesh_.find_edge(pmp::Vertex(F_uv(j, 0)), pmp::Vertex(F_uv(j, 1)))) << std::endl;
+            //    std::cout << (mesh_.find_edge(pmp::Vertex(F_uv(j, 1)), pmp::Vertex(F_uv(j, 0)))) << std::endl;
+            //    std::cout << (mesh_.find_edge(pmp::Vertex(F_uv(j, 1)), pmp::Vertex(F_uv(j, 2)))) << std::endl;
+            //    std::cout << (mesh_.find_edge(pmp::Vertex(F_uv(j, 2)), pmp::Vertex(F_uv(j, 1)))) << std::endl;
+            //    std::cout << (mesh_.find_edge(pmp::Vertex(F_uv(j, 2)), pmp::Vertex(F_uv(j, 0)))) << std::endl;
+            //    std::cout << (mesh_.find_edge(pmp::Vertex(F_uv(j, 0)), pmp::Vertex(F_uv(j, 2)))) << std::endl;*/
+            //    assert((mesh_.find_edge(pmp::Vertex(F_uv(j, 0)), pmp::Vertex(F_uv(j, 1)))).is_valid()
+            //    || (mesh_.find_edge(pmp::Vertex(F_uv(j, 1)), pmp::Vertex(F_uv(j, 0)))).is_valid());
+            //    assert((mesh_.find_edge(pmp::Vertex(F_uv(j, 2)), pmp::Vertex(F_uv(j, 1)))).is_valid()
+            //    || (mesh_.find_edge(pmp::Vertex(F_uv(j, 1)), pmp::Vertex(F_uv(j, 2)))).is_valid());
+            //    assert((mesh_.find_edge(pmp::Vertex(F_uv(j, 2)), pmp::Vertex(F_uv(j, 0)))).is_valid(),
+            //        || (mesh_.find_edge(pmp::Vertex(F_uv(j, 0)), pmp::Vertex(F_uv(j, 2)))).is_valid());
+            //}
             
 #ifdef DEBUG_PRINT
             std::cout << "uv" << std::endl;
             std::cout << uv << std::endl;
 #endif 
 
-            neuralSubdiv::check_lscm_self_folding(uv, F_uv, boundary_idx);
-            neuralSubdiv::check_link_condition(mesh_, mesh_.edge(cd.v0v1));
+            if (!neuralSubdiv::check_lscm_self_folding(uv, F_uv, boundary_idx))
+            {
+                std::cerr << "Self-folding check failed (1st lscm)" << std::endl;
+            }
 
-            //std::vector<pmp::Normal> face_normals(F_onering.rows());
-            //// compute normals for face onering (normalized)
-            //for (int i = 0; i < F_onering.rows(); ++i)
-            //    face_normals[i] = pmp::SurfaceNormals::compute_face_normal(mesh_, pmp::Face(F_onering(i)));
+            save = pmp::SurfaceMesh(mesh_);
+            save.collapse(min_h);
+
+            Eigen::MatrixXi V_map_after(save.valence(vi) + 1, 1);
+            Eigen::MatrixXi F_onering_after;
+            flatten_one_ring_after(save, vi, uv, V_map, uv_after, F_uv_after, V_map_after);
+
+            bool tri_quality = neuralSubdiv::check_triangle_quality(save, vi);
+            if (!tri_quality)
+            {
+                std::cout << "TRI bad tri quality" << std::endl;
+                eskip_[min_h] = true;
+                if (stall_count > 500)
+                {
+                    std::cout << "WARNING: premature stop in decimation (no more decent collapse available)" << std::endl;
+                    break;
+                }
+                continue;
+            }
+
+            bool uv_quality = neuralSubdiv::check_triangle_quality_uv(uv_after, F_uv_after);
+            if (!uv_quality)
+            {
+                std::cout << "UV bad tri quality" << std::endl;
+                eskip_[min_h] = true;
+                if (stall_count > 500)
+                {
+                    std::cout << "WARNING: premature stop in decimation (no more decent collapse available)" << std::endl;
+                    break;
+                }
+                continue;
+            }
 
             mesh_.collapse(min_h);
             --nv;
             postprocess_collapse(cd); // postprocessing, e.g., update quadrics
+            //std::cout << "---" << std::endl;
+            //flatten_one_ring_after(mesh_, vi, uv, V_map, uv_after, F_uv_after, V_map_after);
+            //tri_quality = neuralSubdiv::check_triangle_quality(mesh_, vi);
+            //if (!tri_quality)
+            //{
+            //    std::cout << "TRI WTF" << std::endl;
+            //    assert(false);
+            //}
 
-            flatten_one_ring_after(mesh_, vi, uv, V_map, uv_after, F_uv_after);
+            //uv_quality = neuralSubdiv::check_triangle_quality_uv(uv_after, F_uv_after);
+            //if (!uv_quality)
+            //{
+            //    std::cout << "UV WTF" << std::endl;
+            //    assert(false);
+            //}
+
+            //assert(neuralSubdiv::check_F_uv_after(mesh_, cd.v1, F_uv_after, V_map_after));
+
+
             //auto stop_param = high_resolution_clock::now();
 
 #ifdef DEBUG_PRINT
             std::cout << "uv after" << std::endl;
             std::cout << uv_after << std::endl;
 #endif
-
             DecInfo info;
             info.n_collapse = it;
             info.vi = cd.v1;
@@ -311,13 +383,15 @@ namespace neuralSubdiv {
             info.uv = uv;
             info.uv_after = uv_after;
             info.F_uv = F_uv;
-            info.F_uv = F_uv_after;
+            info.F_uv_after = F_uv_after;
             info.V_map = V_map;
+            info.V_map_after = V_map_after;
             dec_infos_[it] = info;
 
             // clean previous edge selection and recompute selection
             //auto start_r = high_resolution_clock::now();
 
+            // TODO at the beginning of the loop
             if (use_subset_)
             {
                 //for (int i = 0; i < 100; ++i)
@@ -329,12 +403,13 @@ namespace neuralSubdiv {
                 else
                 {
                     int idx = 0;
+                    edges_copy.resize(mesh_.n_edges());
                     for (auto eit : mesh_.edges())
                     {
                         edges_copy[idx] = eit.idx();
                         ++idx;
                     }
-                    std::random_shuffle(edges_copy.begin(), edges_copy.end());
+                    std::shuffle(edges_copy.begin(), edges_copy.end(), eng_);
                     //for (int i = 0; i < 100; ++i)
                     //    eselected_[pmp::Edge(edges_copy[i])] = true;
                     //queue_->clear();
@@ -358,13 +433,13 @@ namespace neuralSubdiv {
             //    eselected_[mesh_.edge(mesh_.halfedge(*or_it))] = true;
             //    enqueue_vertex(*or_it);
             //}
-
+            stall_count = 0;
             ++it; // n_collapse 
             //auto stop_loop = high_resolution_clock::now();
-            //auto duration_loop = duration_cast<microseconds>(stop_loop - start_loop);
-            //auto duration_r = duration_cast<microseconds>(stop_r - start_r);
+            //auto duration_loop = duration_cast<milliseconds>(stop_loop - start_loop);
+            //auto duration_r = duration_cast<milliseconds>(stop_r - start_r);
             //auto duration_prio = duration_cast<microseconds>(stop_prio - start_prio);
-            //auto duration_param = duration_cast<microseconds>(stop_param - start_param);
+            //auto duration_param = duration_cast<milliseconds>(stop_param - start_param);
             //auto duration_f= duration_cast<microseconds>(stop_f- start_f);
             //std::cout << "Loop: " << duration_loop.count() << std::endl;
             //std::cout << "rand: " << duration_r.count() << std::endl;
@@ -375,10 +450,6 @@ namespace neuralSubdiv {
 
         // clean up
         //delete queue_;
-        mesh_.garbage_collection();
-        mesh_.remove_vertex_property(vpriority_);
-        mesh_.remove_vertex_property(heap_pos_);
-        mesh_.remove_vertex_property(vtarget_);
 
 #ifdef DEBUG_PRINT
         std::cout << "dec info size : " << dec_infos.size() << std::endl;
@@ -436,6 +507,9 @@ namespace neuralSubdiv {
             if (!vselected_[cd.v0])
                 return false;
         }
+
+        if (eskip_[cd.v0v1])
+            return false;
 
         // test features
         if (has_features_)

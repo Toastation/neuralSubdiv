@@ -20,19 +20,18 @@ namespace neuralSubdiv {
 						Eigen::MatrixXi& V_map, Eigen::MatrixXi& F_map);
 
 	void flatten_one_ring_after(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, Eigen::MatrixXd& uv, Eigen::MatrixXi& V_map,
-		Eigen::MatrixXd& uv2, Eigen::MatrixXi& f_uv);
+		Eigen::MatrixXd& uv_after, Eigen::MatrixXi& f_uv, Eigen::MatrixXi& v_idx);
 
 	// appendix C. paragraph 3
 	// check that the total angle around vi and vj is 2*pi 
 	bool check_lscm_self_folding(Eigen::MatrixXd& uv, Eigen::MatrixXi& f_uv, Eigen::Vector2i& boundary_idx);
 
-	// appendix C. paragraph 4
-	// check if there are non-manifold edges
-	bool check_link_condition(pmp::SurfaceMesh& meshIn, pmp::Edge& e);
+	bool check_triangle_quality_uv(Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv);
+
+	bool check_triangle_quality(pmp::SurfaceMesh& mesh, pmp::Vertex v);
 
 	bool reconnect_faces(Eigen::MatrixXi& F, Eigen::ArrayXi& F_map, int i, int j, Eigen::Vector2i& del_faces_idx);
 
-	// This one I don't how to use the data from pmp::SurfaceMesh 
 	static inline void faces_to_matrix(pmp::SurfaceMesh& meshIn, Eigen::MatrixXi& F)
 	{
 		int i = 0, j = 0;
@@ -95,23 +94,36 @@ namespace neuralSubdiv {
 		{
 			if (vertex.is_valid() && std::find(or_idx.begin(), it, vertex.idx()) == it)
 			{
-				(*it) = vertex.idx();
-				onering_vertices.row(idx) = static_cast<Eigen::Vector3d>(mesh.position(vertex));
-				if (vertex == j) boundary_idx(1) = idx;
-				++it; ++idx;
+				if (vertex != j)
+				{
+					(*it) = vertex.idx();
+					onering_vertices.row(idx) = static_cast<Eigen::Vector3d>(mesh.position(vertex));
+					++idx;
+					++it;
+				}
 			}
 		}
 		for (auto vertex : mesh.vertices(j))
 		{
 			if (vertex.is_valid() && std::find(or_idx.begin(), it, vertex.idx()) == it)
 			{
-				(*it) = vertex.idx();
-				onering_vertices.row(idx) = static_cast<Eigen::Vector3d>(mesh.position(vertex));
-				if (vertex == i) boundary_idx(0) = idx;
-				++it; ++idx;
+				if (vertex != i) 
+				{
+					(*it) = vertex.idx();
+					onering_vertices.row(idx) = static_cast<Eigen::Vector3d>(mesh.position(vertex));
+					++idx;
+					++it;
+				}
 			}
 		}
-		onering_vertices_idx = Eigen::Map<Eigen::ArrayXi>(or_idx.data(), or_idx.size()); // will the std container data be removed at the end of this func?
+		// place i,j last so we can easily ignore them later
+		(*it) = i.idx();
+		boundary_idx(0) = idx;
+		onering_vertices.row(idx) = static_cast<Eigen::Vector3d>(mesh.position(i)); ++idx; ++it;
+		(*it) = j.idx();
+		boundary_idx(1) = idx; 
+		onering_vertices.row(idx) = static_cast<Eigen::Vector3d>(mesh.position(j)); ++idx; ++it;
+		onering_vertices_idx = Eigen::Map<Eigen::ArrayXi>(or_idx.data(), or_idx.size());
 	}
 
 } // namespace neuralSubdiv

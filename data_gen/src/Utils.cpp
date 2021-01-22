@@ -7,6 +7,7 @@
 #include "igl/squared_edge_lengths.h"
 
 #include "pmp/algorithms/SurfaceNormals.h"
+#include "pmp/algorithms/DifferentialGeometry.h"
 
 #include <vector>
 #include <map>
@@ -72,13 +73,13 @@ namespace neuralSubdiv {
 
 		// minimize conformal energy
 		igl::lscm(V_uv, F_uv, boundary_idx, boundary_constraints, uv);
+		assert(V_map(boundary_idx[0]) == vi.idx());
 	}
 
 	void flatten_one_ring_after(pmp::SurfaceMesh& meshIn, pmp::Vertex& vi, Eigen::MatrixXd& uv, Eigen::MatrixXi& V_map, 
-		Eigen::MatrixXd& uv_after, Eigen::MatrixXi& f_uv)
+		Eigen::MatrixXd& uv_after, Eigen::MatrixXi& f_uv, Eigen::MatrixXi& v_idx)
 	{
 		Eigen::MatrixXd v(meshIn.valence(vi) + 1, 3);
-		Eigen::MatrixXi v_idx(meshIn.valence(vi) + 1, 1);
 		Eigen::MatrixXd boundary_constraints_after(meshIn.valence(vi), 2);
 		Eigen::MatrixXi boundary_constraints_idx_after(meshIn.valence(vi), 1);
 
@@ -114,7 +115,7 @@ namespace neuralSubdiv {
 			}
 			++i;
 		}
-		
+
 		idx = 0;
 		for (int i = 0; i < boundary_constraints_idx_after.rows(); ++i)
 			boundary_constraints_idx_after(i) = i;
@@ -149,7 +150,7 @@ namespace neuralSubdiv {
 		igl::squared_edge_lengths(uv, f_uv, sl);
 		igl::internal_angles_using_squared_edge_lengths(sl, angles);
 		double sum_angle_vi = 0.0, sum_angle_vj = 0.0;
-		if (angles.rows() == f_uv.rows()) return false;
+		if (angles.rows() != f_uv.rows()) return false;
 		// sum angles where vi or vj appear
 		for (int i = 0; i < angles.rows(); ++i)
 		{
@@ -165,32 +166,71 @@ namespace neuralSubdiv {
 			&& (sum_angle_vj < 2.0 * M_PI + 1e-7);
 	}
 
-	bool check_link_condition(pmp::SurfaceMesh& meshIn, pmp::Edge& e)
+	bool check_triangle_quality_uv(Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv)
 	{
-		pmp::Vertex vi = meshIn.vertex(e, 0);
-		pmp::Vertex vj = meshIn.vertex(e, 1);
-		std::vector<int> vi_neighbordhood;
-		int vertices[2];
-		int count = 0;
-		// vi neighborhood vertices
-		for (auto v_it : meshIn.vertices(vi))
-			vi_neighbordhood.push_back(v_it.idx());
-		// check that vj's has at most 2 in common with vi's
-		for (auto v_it : meshIn.vertices(vj))
+		// TODO optimize and factorize
+		Eigen::Vector2d p1, p2, p3;
+		double el1, el2, el3, x, delta, Q;
+		double cst = 4.0 * std::sqrt(3.0);
+		for (int i = 0; i < F_uv.rows(); ++i)
 		{
-			if (std::find(vi_neighbordhood.begin(), vi_neighbordhood.end(), v_it.idx()) != vi_neighbordhood.end())
-			{
-				return false; 
-				vertices[count] = v_it.idx();
-				++count;
-			}
+			p1 = uv.row(F_uv(i, 0));
+			p2 = uv.row(F_uv(i, 1));
+			p3 = uv.row(F_uv(i, 2));
+			el1 = (p1 - p2).norm();
+			el2 = (p2 - p3).norm();
+			el3 = (p3 - p1).norm();
+			x = (el1 + el2 + el3) / 2.0;
+			delta = std::sqrt(x * (x - el1) * (x - el2) * (x - el3));
+			Q = cst * delta / (el1 * el1 + el2 * el2 + el3 * el3);
+			//std::cout << "cst:" << cst << "    denom: " << (el1 * el1 + el2 * el2 + el3 * el3) << std::endl;
+			//std::cout << "Q=" << Q << "  x=" << x << "   delta=" << delta << std::endl;
+			if (Q < 0.2) return false;
 		}
-		// check if the two common vertices are connected
-		for (auto v_it : meshIn.vertices(pmp::Vertex(vertices[0])))
-			if (v_it.idx() == vertices[1])
-				return false;
 		return true;
 	}
+
+	bool check_triangle_quality(pmp::SurfaceMesh& mesh, pmp::Vertex v)
+	{
+		// TODO optimize and factorize
+		pmp::Point p1, p2, p3;
+		double el1, el2, el3, x, delta, Q;
+		double cst = 4.0 * std::sqrt(3.0);
+		for (auto face : mesh.faces(v))
+		{
+			auto it = mesh.vertices(face);
+			p1 = mesh.position(*it); ++it;
+			p2 = mesh.position(*it); ++it;
+			p3 = mesh.position(*it);
+			el1 = dot(p1, p2);
+			el2 = dot(p2, p3);
+			el3 = dot(p3, p1);
+			x = (el1 + el2 + el3) / 2.0;
+			delta = std::sqrt(x * (x - el1) * (x - el2) * (x - el3));
+			Q = cst * delta / (el1 * el1 + el2 * el2 + el3 * el3);
+			//std::cout << "cst:" << cst << "    denom: " << (el1 * el1 + el2 * el2 + el3 * el3) << std::endl;
+			//std::cout << "Q=" << Q << "  x=" << x << "   delta=" << delta << std::endl;
+			if (Q < 0.2) return false;
+		}
+		return true;
+	}
+
+	/*
+	l0 = sqrt(sum((UV(FUV(:, 1), :) - UV(FUV(:, 2), :)). ^ 2, 2));
+	l1 = sqrt(sum((UV(FUV(:, 2), :) - UV(FUV(:, 3), :)). ^ 2, 2));
+	l2 = sqrt(sum((UV(FUV(:, 3), :) - UV(FUV(:, 1), :)). ^ 2, 2));
+	x = (l0 + l1 + l2) . / 2;
+	delta = sqrt(x .* (x - l0) .* (x - l1) .* (x - l2));
+	triQ = 4 * sqrt(3) * delta . / (l0. ^ 2 + l1. ^ 2 + l2. ^ 2);
+	triQ(delFUV) = [];
+	if any(triQ < triQ_threshold)
+		fprintf('bad UV triangle quality\n');
+	V = Vpre;
+	F = Fpre;
+	ECost(e) = inf;
+	if stall > maxStall break; end
+		continue;
+	end*/
 
 	bool reconnect_faces(Eigen::MatrixXi& F, Eigen::ArrayXi& F_map, int i, int j, Eigen::Vector2i& del_faces_idx)
 	{

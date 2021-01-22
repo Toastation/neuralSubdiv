@@ -27,10 +27,11 @@ public:
         pmp::Vertex vi;                 // remaining vertex after the collapse
         Eigen::Vector2i boundary_idx;   // vertex idx of 1-ring
         Eigen::MatrixXd uv;             // flattened vertex position 
-        Eigen::MatrixXd uv_after;       // flattened vertex position (before collapse)
+        Eigen::MatrixXd uv_after;       // flattened vertex position (after second collapse)
         Eigen::MatrixXi F_uv;           // faces in the uv matrix
-        Eigen::MatrixXi F_uv_after;     // faces in the uv_previous matrix
+        Eigen::MatrixXi F_uv_after;     // faces in the uv_after matrix
         Eigen::MatrixXi V_map;          // mapping from uv matrix to the mesh vertex matrix
+        Eigen::MatrixXi V_map_after;
     };
 
     //! Construct with mesh to be simplified.
@@ -144,6 +145,7 @@ private:
     VertexProperty<bool> vfeature_;
     EdgeProperty<bool> efeature_;
     EdgeProperty<bool> eselected_;
+    HalfedgeProperty<bool> eskip_;
 
     PriorityQueue* queue_;
 
