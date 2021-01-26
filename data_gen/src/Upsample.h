@@ -7,15 +7,13 @@
 namespace neuralSubdiv {
 
     // upsample without moving vertices
-	void upsample_mid_point(pmp::SurfaceMesh& mesh);
+	void upsample_mid_point(pmp::SurfaceMesh& mesh, pmp::SurfaceMesh& coarse);
 
-    void ssp(pmp::SurfaceMesh& coarse,
-        pmp::SurfaceMesh& original,
-        pmp::SurfaceMesh& mapped,
-        const std::vector<neuralSubdiv::RandomDecimation::DecInfo>& infos);
+    void ssp(int data_id, pmp::SurfaceMesh& coarse,
+             pmp::SurfaceMesh& original, pmp::SurfaceMesh& mapped,
+             const std::vector<neuralSubdiv::RandomDecimation::DecInfo>& infos);
 
-	void coarse_to_fine(Eigen::Array3d& bary_coord,
-						Eigen::Array3i& bary_face, 
+	void coarse_to_fine(Eigen::Array3d& bary_coord, Eigen::Array3i& bary_face, 
 						const std::vector<neuralSubdiv::RandomDecimation::DecInfo>& infos);
 
     static void inline uv_bary_coord(Eigen::Vector2d& point, Eigen::MatrixXd& uv, Eigen::MatrixXi& F_uv, Eigen::MatrixXd& bary_uv)

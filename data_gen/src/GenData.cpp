@@ -27,7 +27,8 @@ int main(int argc, char** argv) {
 
 	
 	pmp::SurfaceMesh mesh;
-	bool res = mesh.read(argv[1]);
+	//bool res = mesh.read(argv[1]);
+	bool res = mesh.read("C:/Users/Melvin.Melvin-PC/work/neuralSubdiv/base_implementation/data_meshes/objs_original/bob.obj");
 	std::cout << "Loading mesh... " << res << std::endl;
 	std::cout << "Vertex count: " << mesh.n_vertices() << std::endl;
 
@@ -39,8 +40,6 @@ int main(int argc, char** argv) {
 	double r;
 
 	neuralSubdiv::normalize_unit_box(mesh);
-
-
 
 	pmp::SurfaceMesh mapped;
 	for (int i = 0; i < 1; ++i)
@@ -66,23 +65,24 @@ int main(int argc, char** argv) {
 		for (auto vit : mesh_copy.vertices())
 			assert(mesh_copy.is_manifold(vit));
 
-		neuralSubdiv::ssp(mesh_copy, mesh, mapped, rd.get_dec_infos());
+		neuralSubdiv::ssp(i, mesh_copy, mesh, mapped, rd.get_dec_infos());
 		mesh_copy.garbage_collection();
-		mapped.garbage_collection();
 		
 		std::cout << "vertices after: " << mesh_copy.n_vertices() << std::endl;
-		std::string filename_mapped("mapped");
-		filename_mapped += std::to_string(i);
-		filename_mapped += ".obj";
-		mapped.write(filename_mapped);
+		
+		//neuralSubdiv::normalize_unit_box(mapped);
 
 		std::string filename("copy");
 		filename += std::to_string(i);
 		filename += ".obj";
 		mesh_copy.write(filename);
 		std::cout << "Data " << i << "generated as " << filename << std::endl;
-
 	}
+
+	neuralSubdiv::normalize_unit_box(mesh);
+	std::string filename_mapped("copyoriginal");
+	filename_mapped += ".obj";
+	mesh.write(filename_mapped);
 
 
 	return 0;
