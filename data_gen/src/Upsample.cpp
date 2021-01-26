@@ -35,24 +35,23 @@ namespace neuralSubdiv {
             epoint[e] = (points_[mesh.vertex(e, 0)] + points_[mesh.vertex(e, 1)]) * pmp::Scalar(0.5);
 
         pmp::Halfedge e_he;
-        pmp::Vertex v0(-1), v1(-1), v2(-1);
-        bool old0, old1, v0set, v1set;
+        pmp::Vertex v0(-1), v1(-1);
+        bool old0, old1;
         Eigen::Vector3i bf0, bf1, bf_final;
         Eigen::Vector3d bco0, bco1, bco_final;
-        pmp::Vertex v0_copy, v1_copy;
 
         // insert new vertices on edges
         for (auto e : mesh.edges())
         {
-            // store old vertices (v0, v1 is the edge e)
             e_he = mesh.halfedge(e, 0);
             v0 = mesh.from_vertex(e_he);
             v1 = mesh.to_vertex(e_he);
             old0 = oldvert_prop[v0]; old1 = oldvert_prop[v1];
             bf0 = bary_face_prop[v0]; bf1 = bary_face_prop[v1];
             bco0 = bary_coord_prop[v0]; bco1 = bary_coord_prop[v1];
-            v0set = false; v1set = false;
 
+            // compute new vertex bary coord on the coarse mesh
+            // TODO: remove this if, i think this case is already handled below
             if (old0 && old1)
             {
                 bf_final(0) = v0.idx();
@@ -66,10 +65,10 @@ namespace neuralSubdiv {
             }
             else
             {
-                /*std::vector<int> face_idx(3);
-                std::vector<double> coords(3);*/
                 bool in_list = false;
                 int idx = 0;
+
+                // add non zero bary coord of v0
                 for (int i = 0; i < 3; ++i)
                 {
                     if (bco0(i) >= 1e-7)
@@ -79,11 +78,13 @@ namespace neuralSubdiv {
                         ++idx;
                     }
                 }
+
+                // add non zero bary coord of v1
                 for (int i = 0; i < 3; ++i)
                 {
                     if (bco1(i) >= 1e-7)
                     {
-                        // already exists?
+                        // already exists? sum
                         in_list = false;
                         for (int j = 0; j < idx; ++j)
                         {
@@ -104,6 +105,8 @@ namespace neuralSubdiv {
                     }
                 }
                 assert(idx >= 2);
+                
+                // if there is no third vertex, find the one in an adjacent face in the coarse mesh
                 if (idx == 2)
                 {
                     auto he_tmp = coarse.find_halfedge(pmp::Vertex(bf_final(0)), pmp::Vertex(bf_final(1)));
@@ -115,42 +118,9 @@ namespace neuralSubdiv {
 ;                   }
                     bco_final(2) = 0;
                 }
+
                 bco_final = bco_final / bco_final.sum();
             }
-
-            // can't easily use the next halfedge to compute v2
-            // since it can be "corrupted" by previous insert_vertex
-            //interior_edge = false;
-            //if (old0 && old1)
-            //{
-            //    for (auto v_it : mesh.vertices(mesh.face(e_he))) 
-            //    {
-            //        if (v_it != v0 && v_it != v1 && oldvert_prop[v_it])
-            //            v2 = v_it;
-            //    }
-            //}
-            //else if (!old0 && old1)
-            //{
-            //    v0 = pmp::Vertex(bary_face_prop[v0](0) == v1.idx() ? bary_face_prop[v0](1) : bary_face_prop[v0](0));
-            //    v2 = pmp::Vertex(bary_face_prop[v0](2));
-            //    bc0 = bary_coord_prop[v0](2);
-            //    bc1 = bary_coord_prop[v0](1);
-            //    bc2 = bary_coord_prop[v0](2);
-            //}
-            //else if (old0 && !old1)
-            //{
-            //    v1 = pmp::Vertex(bary_face_prop[v1](0) == v0.idx() ? bary_face_prop[v1](1) : bary_face_prop[v1](0));
-            //    v2 = pmp::Vertex(bary_face_prop[v1](2));
-            //}
-            //else
-            //{
-            //    v0_copy = v0; v1_copy = v1;
-            //    v0 = pmp::Vertex(bary_face_prop[v0_copy](0));
-            //    v1 = pmp::Vertex(bary_face_prop[v0_copy](1));
-            //    v2 = pmp::Vertex((bary_face_prop[v1_copy](0) == v0.idx() || bary_face_prop[v1_copy](0) == v1.idx()) ? bary_face_prop[v1_copy](1) : bary_face_prop[v1_copy](0));
-            //    interior_edge = true;
-            //}
-            //assert(v0 != v1 && v0 != v2 && v2 != v1);
 
             // feature edge?
             if (efeature_ && efeature_[e])
@@ -163,51 +133,20 @@ namespace neuralSubdiv {
                 vfeature_[v] = true;
                 efeature_[e0] = true;
                 efeature_[e1] = true;
-            }
+                bary_face_prop[mesh.to_vertex(h)] = bf_final;
+                bary_coord_prop[mesh.to_vertex(h)] = bco_final;
+                assert(oldvert_prop[pmp::Vertex(bary_face_prop[mesh.to_vertex(h)](2))]);
+            }  
 
             // normal edge
             else 
             {
                 auto he = mesh.insert_vertex(e, epoint[e]);
-                //std::cout << "he created : " << oldvert_prop[mesh.from_vertex(he)] << " -> " << oldvert_prop[mesh.to_vertex(he)] << std::endl;
-                //bary_face_prop[mesh.to_vertex(he)](0) = v0.idx();
-                //bary_face_prop[mesh.to_vertex(he)](1) = v1.idx();
-                //bary_face_prop[mesh.to_vertex(he)](2) = v2.idx();
 
-                //if (level != 1) assert(bc0 != -1 && bc1 != -1 && bc2 != -1);
-
-                //if (level == 1)
-                //{
-                //    bary_coord_prop[mesh.to_vertex(he)](0) = 0.5;
-                //    bary_coord_prop[mesh.to_vertex(he)](1) = 0.5;
-                //    bary_coord_prop[mesh.to_vertex(he)](2) = 0;
-                //}
-                //else if (!interior_edge)
-                //{
-                //    double v = 1.0 / std::pow(2, level);
-                //    bary_coord_prop[mesh.to_vertex(he)](0) = v;
-                //    bary_coord_prop[mesh.to_vertex(he)](1) = 1 - v;
-                //    bary_coord_prop[mesh.to_vertex(he)](2) = 0;
-                //}
-
+                // set new vertex barycentric coordinate
                 bary_face_prop[mesh.to_vertex(he)] = bf_final;
                 bary_coord_prop[mesh.to_vertex(he)] = bco_final;
-
-
                 assert(oldvert_prop[pmp::Vertex(bary_face_prop[mesh.to_vertex(he)](2))]);
-                //std::cout << "oldvert prop" << std::endl;
-                //std::cout << oldvert_prop[pmp::Vertex(v0)] << std::endl;
-                //std::cout << oldvert_prop[pmp::Vertex(v1)] << std::endl;
-                //std::cout << oldvert_prop[pmp::Vertex(v2)] << std::endl;
-                //std::cout << oldvert_prop[mesh.to_vertex(he)] << std::endl;
-                //std::cout << "---------" << std::endl;
-                //std::cout <<  bary_face_prop[mesh.to_vertex(he)](0) << std::endl;
-                //std::cout <<  bary_face_prop[mesh.to_vertex(he)](1) << std::endl;
-                //std::cout <<  bary_face_prop[mesh.to_vertex(he)](2) << std::endl;
-                //std::cout <<  bary_coord_prop[mesh.to_vertex(he)](0) << std::endl;
-                //std::cout <<  bary_coord_prop[mesh.to_vertex(he)](1) << std::endl;
-                //std::cout <<  bary_coord_prop[mesh.to_vertex(he)](2) << std::endl;
-                //std::cout << "@@@@@@@@@@@@" << std::endl;
             }
         }
 
@@ -231,37 +170,36 @@ namespace neuralSubdiv {
     void ssp(int data_id, pmp::SurfaceMesh& coarse, pmp::SurfaceMesh& original, pmp::SurfaceMesh& mapped, const std::vector<neuralSubdiv::RandomDecimation::DecInfo>& infos)
     {
         pmp::SurfaceMesh save;
-        Eigen::MatrixXd bary_coord(coarse.n_vertices(), 3);   // |V|x3 
-        Eigen::MatrixXi bary_face(coarse.n_vertices(), 3);    // |V|x3 
-
         mapped = pmp::SurfaceMesh(coarse);
         auto bary_face_prop = mapped.add_vertex_property<Eigen::Vector3i>("v:bary_face");
         auto bary_coord_prop = mapped.add_vertex_property<Eigen::Vector3d>("v:bary_coord");
         auto oldvert_prop = mapped.add_vertex_property<bool>("v:oldvert");
         auto moved_prop = mapped.add_vertex_property<bool>("v:moved");
         int idx = 0;
+
+        Eigen::Array3d bc;
+        Eigen::Array3i bf;
+
+        // create barycentric coordinate (base level)
         for (auto v_it : mapped.vertices())
         {
             auto he = coarse.halfedges(v_it).begin();
-            bary_coord(idx, 0) = 1; bary_coord(idx, 1) = 0; bary_coord(idx, 2) = 0;
-            bary_face(idx, 0) = v_it.idx();
-            bary_face(idx, 1) = coarse.to_vertex(*he).idx();
-            bary_face(idx, 2) = coarse.to_vertex(coarse.next_halfedge(*he)).idx();
-            bary_face_prop[v_it] = bary_face.row(idx);
-            bary_coord_prop[v_it] = bary_coord.row(idx);
+            bc(0) = 1; bc(1) = 0; bc(2) = 0;
+            bf(0) = v_it.idx();
+            bf(1) = coarse.to_vertex(*he).idx();
+            bf(2) = coarse.to_vertex(coarse.next_halfedge(*he)).idx();
+            bary_face_prop[v_it] = bf;
+            bary_coord_prop[v_it] = bc;
             oldvert_prop[v_it] = true;
             moved_prop[v_it] = false;
             ++idx;
         }
 
         pmp::VertexProperty<pmp::Point> points = mapped.vertex_property<pmp::Point>("v:point");
-        Eigen::Array3d bc;
-        Eigen::Array3i bf;
-
         int nbsubd = 2;
-        for (int i = 0; i < nbsubd+1; ++i) //nb subd +1
+        for (int i = 0; i < nbsubd+1; ++i)
         {
-            // move vertices
+            // move vertices to their position on the original mesh
             for (auto v_it : mapped.vertices())
             {
                 if (moved_prop[v_it]) continue;
@@ -274,7 +212,7 @@ namespace neuralSubdiv {
                 moved_prop[v_it] = true;
             }
 
-            // copy and save
+            // copy and save mapped mesh
             save = pmp::SurfaceMesh(mapped);
             save.garbage_collection();
             std::string filename_mapped("subd");
@@ -284,7 +222,7 @@ namespace neuralSubdiv {
             filename_mapped += ".obj";
             save.write(filename_mapped);
 
-            if (i < nbsubd) // nb subd
+            if (i < nbsubd) 
                 upsample_mid_point(mapped, coarse);
         }
 
@@ -306,13 +244,8 @@ namespace neuralSubdiv {
         for (int i = infos.size()-1; i >= 0; i--)
         {
             info = infos[i];
-            //std::cout << "vi=" << info.vi << std::endl;
             if ((bary_face.array() == info.vi.idx()).any()) // is the vertex in the onering of remaining vertex of the collapse?
             {
-                //std::cout << "bary_face: " << std::endl;
-                //std::cout << bary_face << std::endl;
-                //std::cout << "vmap after" << std::endl;
-                //std::cout << info.V_map_after << std::endl;
                 assert((bary_coord.array() >= 0).all());
                 assert((bary_coord.array() <= 1).all());
                 assert(bary_coord.sum() - 1.0 <= epsilon);
@@ -325,11 +258,7 @@ namespace neuralSubdiv {
                     if (info.V_map_after(j) == bary_face[2]) v2 = j;
                     // TODO: stop if all idx found ? but vmap is small so not to much gain
                 }
-                //std::cout << "count " << count << " i=" << i << std::endl;
                 assert(v0 != -1 && v1 != -1 && v2 != -1);
-                //if (v0 == -1 || v1 == -1 || v2 == -1) {
-                //    continue;
-                //}
                 
                 // compute point position in the UV domain
                 point_uv = bary_coord(0) * info.uv_after.array().row(v0)
@@ -343,20 +272,6 @@ namespace neuralSubdiv {
                 // find the valid barycentric coordinates
                 int uv_face_idx = -1;
 
-                //std::cout << "bary" << std::endl;
-                //std::cout << bary_coord << std::endl;
-
-                //std::cout << "point uv" << std::endl;
-                //std::cout << point_uv << std::endl;
-
-                //std::cout << "uv" << std::endl;
-                //std::cout << info.uv << std::endl;
-
-                //std::cout << "fuv" << std::endl;
-                //std::cout << info.F_uv << std::endl;
-
-                //std::cout << "bary uv" << std::endl;
-                //std::cout << bary_uv << std::endl;
                 for (int j = 0; j < bary_uv.rows(); ++j)
                 {
                     if (bary_uv(j, 0) >= -epsilon && bary_uv(j, 0) <= 1.0 + epsilon
@@ -364,7 +279,6 @@ namespace neuralSubdiv {
                      && bary_uv(j, 2) >= -epsilon && bary_uv(j, 2) <= 1.0 + epsilon)
                     {
                         uv_face_idx = j;
-                        //std::cout << bary_uv.row(j) << std::endl;
                         break;
                     }
                 }
@@ -393,8 +307,6 @@ namespace neuralSubdiv {
                 ++count;
             }
         }
-        //std::cout << "count" << std::endl;
-        //std::cout << count << std::endl;
     }
 
 
