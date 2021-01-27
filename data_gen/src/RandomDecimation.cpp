@@ -237,7 +237,7 @@ namespace neuralSubdiv {
             }
             if (min_h.idx() == -1)
             {
-                std::cout << "WARNING: premature stop in decimation (no more decent collapse available)" << std::endl;
+                std::cout << "WARNING: premature stop in decimation (no more decent collapse available 1)" << std::endl;
                 break;
             }
             auto stop_prio = high_resolution_clock::now();
@@ -315,26 +315,16 @@ namespace neuralSubdiv {
                 std::cerr << "Self-folding check failed (1st lscm)" << std::endl;
             }
 
+
+            pmp::Point pi = vpoint_[vi];
+            pmp::Point pj = vpoint_[vj];
+
+            vpoint_[vi] = (pi + pj) / 2.0;
             save = pmp::SurfaceMesh(mesh_);
             save.collapse(min_h);
-
             Eigen::MatrixXi V_map_after(save.valence(vi) + 1, 1);
             Eigen::MatrixXi F_onering_after;
             flatten_one_ring_after(save, vi, uv, V_map, uv_after, F_uv_after, V_map_after);
-
-            bool tri_quality = neuralSubdiv::check_triangle_quality(save, vi);
-            if (!tri_quality)
-            {
-                std::cout << "TRI bad tri quality" << std::endl;
-                eskip_[min_h] = true;
-                if (stall_count > 500)
-                {
-                    std::cout << "WARNING: premature stop in decimation (no more decent collapse available)" << std::endl;
-                    break;
-                }
-                continue;
-            }
-
             bool uv_quality = neuralSubdiv::check_triangle_quality_uv(uv_after, F_uv_after);
             if (!uv_quality)
             {
@@ -342,30 +332,18 @@ namespace neuralSubdiv {
                 eskip_[min_h] = true;
                 if (stall_count > 500)
                 {
-                    std::cout << "WARNING: premature stop in decimation (no more decent collapse available)" << std::endl;
+                    std::cout << "WARNING: premature stop in decimation (no more decent collapse available 2)" << std::endl;
                     break;
                 }
                 continue;
             }
-
+            
+            vpoint_[vi] = pi;
             mesh_.collapse(min_h);
+            vpoint_[vi] = (pi + pj) / 2.0;
             --nv;
             postprocess_collapse(cd); // postprocessing, e.g., update quadrics
-            //std::cout << "---" << std::endl;
-            //flatten_one_ring_after(mesh_, vi, uv, V_map, uv_after, F_uv_after, V_map_after);
-            //tri_quality = neuralSubdiv::check_triangle_quality(mesh_, vi);
-            //if (!tri_quality)
-            //{
-            //    std::cout << "TRI WTF" << std::endl;
-            //    assert(false);
-            //}
-
-            //uv_quality = neuralSubdiv::check_triangle_quality_uv(uv_after, F_uv_after);
-            //if (!uv_quality)
-            //{
-            //    std::cout << "UV WTF" << std::endl;
-            //    assert(false);
-            //}
+            
 
             //assert(neuralSubdiv::check_F_uv_after(mesh_, cd.v1, F_uv_after, V_map_after));
 
@@ -456,49 +434,6 @@ namespace neuralSubdiv {
 #endif
     }
 
-    void RandomDecimation::enqueue_vertex(Vertex v)
-    {
-        float prio, min_prio(std::numeric_limits<float>::max());
-        Halfedge min_h;
-
-        // find best out-going halfedge
-        for (auto h : mesh_.halfedges(v))
-        {
-            CollapseData cd(mesh_, h);
-            if (is_collapse_legal(cd))
-            {
-                prio = priority(cd);
-                if (prio != -1.0 && prio < min_prio)
-                {
-                    min_prio = prio;
-                    min_h = h;
-                }
-            }
-        }
-
-        // target found -> put vertex on heap
-        if (min_h.is_valid())
-        {
-            vpriority_[v] = min_prio;
-            vtarget_[v] = min_h;
-
-            if (queue_->is_stored(v))
-                queue_->update(v);
-            else
-                queue_->insert(v);
-        }
-
-        // not valid -> remove from heap
-        else
-        {
-            if (queue_->is_stored(v))
-                queue_->remove(v);
-
-            vpriority_[v] = -1;
-            vtarget_[v] = min_h;
-        }
-    }
-
     bool RandomDecimation::is_collapse_legal(const CollapseData& cd)
     {
         // test selected vertices
@@ -571,7 +506,7 @@ namespace neuralSubdiv {
         // check for flipping normals
         if (normal_deviation_ == 0.0)
         {
-            vpoint_[cd.v0] = p1;
+            vpoint_[cd.v0] = (p1 + p0) / 2.0;
             for (auto f : mesh_.faces(cd.v0))
             {
                 if (f != cd.fl && f != cd.fr)
@@ -591,7 +526,7 @@ namespace neuralSubdiv {
         // check normal cone
         else
         {
-            vpoint_[cd.v0] = p1;
+            vpoint_[cd.v0] = (p1 + p0) / 2.0;
 
             Face fll, frr;
             if (cd.vl.is_valid())
@@ -634,7 +569,7 @@ namespace neuralSubdiv {
                 if (f != cd.fl && f != cd.fr)
                 {
                     // worst aspect ratio after collapse
-                    vpoint_[cd.v0] = p1;
+                    vpoint_[cd.v0] = (p1 + p0) / 2.0;
                     ar1 = std::max(ar1, aspect_ratio(f));
                     // worst aspect ratio before collapse
                     vpoint_[cd.v0] = p0;
@@ -662,7 +597,7 @@ namespace neuralSubdiv {
             points.push_back(vpoint_[cd.v0]);
 
             // test points against all faces
-            vpoint_[cd.v0] = p1;
+            vpoint_[cd.v0] = (p1 + p0) / 2.0;
             for (auto point : points)
             {
                 ok = false;

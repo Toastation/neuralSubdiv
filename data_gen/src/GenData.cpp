@@ -24,15 +24,15 @@ int main(int argc, char** argv) {
 	std::srand(time(NULL));
 
 	//TestViewer window("Test gendata", 800, 600);
-
 	
 	pmp::SurfaceMesh mesh;
-	//bool res = mesh.read(argv[1]);
-	bool res = mesh.read("C:/Users/Melvin.Melvin-PC/work/neuralSubdiv/base_implementation/data_meshes/objs_original/bob.obj");
+	bool res = mesh.read(argv[1]);
+	//bool res = mesh.read("C:/Users/Melvin.Melvin-PC/work/neuralSubdiv/base_implementation/data_meshes/objs/bunny.obj");
+	//bool res = mesh.read("C:/Users/Melvin.Melvin-PC/work/neuralSubdiv/base_implementation/data_meshes/objs_original/bob.obj");
 	std::cout << "Loading mesh... " << res << std::endl;
 	std::cout << "Vertex count: " << mesh.n_vertices() << std::endl;
 
-	int nb_generated_data = 5;
+	int nb_generated_data = 1;
 	int tv_average = 100; // target average number of vertices
 	int tv_variance = 10; 
 	int nb_subd = 2;
@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
 	neuralSubdiv::normalize_unit_box(mesh);
 
 	pmp::SurfaceMesh mapped;
-	for (int i = 0; i < 1; ++i)
+	for (int i = 0; i < nb_generated_data; ++i)
 	{
 		r = std::rand() / (double)RAND_MAX;
 		nb_target_vertex = tv_average + round(tv_variance * (r - 0.5));
@@ -57,11 +57,6 @@ int main(int argc, char** argv) {
 		rd.initialize();
 		rd.simplify(400);
 
-		/*for (int i = rd.get_dec_infos().size() - 1; i >= 0; i--)
-		{
-			auto info = rd.get_dec_infos()[i];
-			std::cout << "vi: " << info.vi << std::endl;
-		}*/
 		for (auto vit : mesh_copy.vertices())
 			assert(mesh_copy.is_manifold(vit));
 
@@ -70,8 +65,6 @@ int main(int argc, char** argv) {
 		
 		std::cout << "vertices after: " << mesh_copy.n_vertices() << std::endl;
 		
-		//neuralSubdiv::normalize_unit_box(mapped);
-
 		std::string filename("copy");
 		filename += std::to_string(i);
 		filename += ".obj";

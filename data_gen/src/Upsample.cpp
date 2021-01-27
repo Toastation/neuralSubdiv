@@ -271,7 +271,6 @@ namespace neuralSubdiv {
 
                 // find the valid barycentric coordinates
                 int uv_face_idx = -1;
-
                 for (int j = 0; j < bary_uv.rows(); ++j)
                 {
                     if (bary_uv(j, 0) >= -epsilon && bary_uv(j, 0) <= 1.0 + epsilon

@@ -41,8 +41,8 @@ public:
     ~RandomDecimation();
 
     //! Initialize with given parameters.
-    void initialize(Scalar aspect_ratio = 0.0, Scalar edge_length = 0.0,
-        unsigned int max_valence = 0, Scalar normal_deviation = 0.0,
+    void initialize(Scalar aspect_ratio = 10.0, Scalar edge_length = 0.0,
+        unsigned int max_valence = 0, Scalar normal_deviation = 100.0,
         Scalar hausdorff_error = 0.0, unsigned int edge_subset_size=100, bool use_subset=true);
 
     //! Simplify mesh to \p n_vertices.
